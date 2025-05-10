@@ -62,7 +62,7 @@ General rules:
   `corepack prepare pnpm@latest --activate`
 
 **App Setup:**
-1. Add environment variables to the .env file
+1. Add environment variables to the  file
 2. Run `source .env` to load the variables
 3. Run `pnpm i` to install all packages
 4. Run `pnpm dev` to run the app locally

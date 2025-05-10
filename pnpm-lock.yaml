@@ -17,9 +17,6 @@ importers:
       '@prisma/client':
         specifier: ^6.7.0
         version: 6.7.0(prisma@6.7.0(typescript@5.8.2))(typescript@5.8.2)
-      '@roots-homes/prisma-schema-mls-system':
-        specifier: 1.2.5
-        version: 1.2.5(prisma@6.7.0(typescript@5.8.2))
       '@tanstack/react-query':
         specifier: ^5.62.2
         version: 5.75.2(react@19.1.0)
@@ -656,15 +653,6 @@ packages:
   '@pandacss/is-valid-prop@0.53.6':
     resolution: {integrity: sha512-TgWBQmz/5j/oAMjavqJAjQh1o+yxhYspKvepXPn4lFhAN3yBhilrw9HliAkvpUr0sB2CkJ2BYMpFXbAJYEocsA==}
 
-  '@prisma/client@5.22.0':
-    resolution: {integrity: sha512-M0SVXfyHnQREBKxCgyo7sffrKttwE6R8PMq330MIUF0pTwjUhLbW84pFDlf06B27XyCR++VtjugEnIHdr07SVA==}
-    engines: {node: '>=16.13'}
-    peerDependencies:
-      prisma: '*'
-    peerDependenciesMeta:
-      prisma:
-        optional: true
-
   '@prisma/client@6.7.0':
     resolution: {integrity: sha512-+k61zZn1XHjbZul8q6TdQLpuI/cvyfil87zqK2zpreNIXyXtpUv3+H/oM69hcsFcZXaokHJIzPAt5Z8C8eK2QA==}
     engines: {node: '>=18.18'}
@@ -694,9 +682,6 @@ packages:
 
   '@prisma/get-platform@6.7.0':
     resolution: {integrity: sha512-i9IH5lO4fQwnMLvQLYNdgVh9TK3PuWBfQd7QLk/YurnAIg+VeADcZDbmhAi4XBBDD+hDif9hrKyASu0hbjwabw==}
-
-  '@roots-homes/prisma-schema-mls-system@1.2.5':
-    resolution: {integrity: sha512-05hK4yvdZtqL4Fy487/240TKlDS7GJQEX0qOgsgnEGvyncqh1gsxkvbvLehfYl0yDykbvHfi8JyqxKijyG7wbQ==, tarball: https://npm.pkg.github.com/download/@roots-homes/prisma-schema-mls-system/1.2.5/4f5924e2cf4f1ccc05f7fc4ccb4dafc30dc3d011}
 
   '@rtsao/scc@1.1.0':
     resolution: {integrity: sha512-zt6OdqaDoOnJ1ZYsCYGt9YmWzDXl4vQdKTyJev62gFhRGKdx7mcT54V9KIjg+d2wi9EXsPvAPKe7i7WjfVWB8g==}
@@ -1461,10 +1446,6 @@ packages:
   doctrine@2.1.0:
     resolution: {integrity: sha512-35mSku4ZXK0vfCuHEDAwt55dg2jNajHZ1odvF+8SSr82EsZY4QmXfuWso8oEd8zRhVObSN18aM0CjSdoBX7zIw==}
     engines: {node: '>=0.10.0'}
-
-  dotenv@16.5.0:
-    resolution: {integrity: sha512-m/C+AwOAr9/W1UOIZUo232ejMNnJAJtYQjUbHoNTBNTJSvqzzDh7vnrei3o3r3m9blf6ZoDkvcw0VmozNRFJxg==}
-    engines: {node: '>=12'}
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -3407,10 +3388,6 @@ snapshots:
 
   '@pandacss/is-valid-prop@0.53.6': {}
 
-  '@prisma/client@5.22.0(prisma@6.7.0(typescript@5.8.2))':
-    optionalDependencies:
-      prisma: 6.7.0(typescript@5.8.2)
-
   '@prisma/client@6.7.0(prisma@6.7.0(typescript@5.8.2))(typescript@5.8.2)':
     optionalDependencies:
       prisma: 6.7.0(typescript@5.8.2)
@@ -3443,14 +3420,6 @@ snapshots:
   '@prisma/get-platform@6.7.0':
     dependencies:
       '@prisma/debug': 6.7.0
-
-  '@roots-homes/prisma-schema-mls-system@1.2.5(prisma@6.7.0(typescript@5.8.2))':
-    dependencies:
-      '@prisma/client': 5.22.0(prisma@6.7.0(typescript@5.8.2))
-      dotenv: 16.5.0
-      zod: 3.24.4
-    transitivePeerDependencies:
-      - prisma
 
   '@rtsao/scc@1.1.0': {}
 
@@ -4511,8 +4480,6 @@ snapshots:
   doctrine@2.1.0:
     dependencies:
       esutils: 2.0.3
-
-  dotenv@16.5.0: {}
 
   dunder-proto@1.0.1:
     dependencies:
