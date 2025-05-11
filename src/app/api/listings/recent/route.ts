@@ -20,7 +20,9 @@ export async function GET() {
         propertyType: true,
         photoUrls: true,
         status: true,
-        createdAt: true
+        createdAt: true,
+        latitude: true,
+        longitude: true
       }
     })
 

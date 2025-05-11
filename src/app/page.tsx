@@ -2,6 +2,15 @@
 
 import { useState } from 'react'
 import { Button, Heading, VStack, Text, Image, Box, SimpleGrid } from "@chakra-ui/react"
+import dynamic from 'next/dynamic';
+
+const MapWithMarkers = dynamic(
+  () => import('../components/MapWithMarkers'),
+  {
+    ssr: false,
+    loading: () => <p>Loading map…</p>,
+  }
+);
 
 interface Listing {
   id: string
@@ -16,12 +25,15 @@ interface Listing {
   photoUrls: string[]
   status: string
   createdAt: string
+  latitude: number
+  longitude: number
 }
 
 export default function Home() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showMap, setShowMap] = useState(false)
 
   const fetchRecentListings = async () => {
     setLoading(true)
@@ -40,6 +52,10 @@ export default function Home() {
     }
   }
 
+  const handleMapClick = () => {
+    setShowMap(!showMap)
+  }
+
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-[32px] row-start-2 items-center w-full max-w-6xl">
@@ -53,8 +69,22 @@ export default function Home() {
           {loading ? 'Fetching...' : 'Fetch Recent Listings'}
         </Button>
 
+        <Button
+          colorScheme="red"
+          onClick={handleMapClick}
+        >
+          {showMap ? 'Hide Map' : 'Show Map'}
+        </Button>
+
         {error && (
           <Text color="red.500">Error: {error}</Text>
+        )}
+
+        {showMap && (
+          <MapWithMarkers markers={listings.map(listing => ({
+            latitude: listing.latitude,
+            longitude: listing.longitude
+          }))} />
         )}
 
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6} width="100%">
@@ -94,6 +124,12 @@ export default function Home() {
                 </Text>
                 <Text color="blue.500" fontSize="sm">
                   {listing.status}
+                </Text>
+                <Text color="red.500" fontSize="sm">
+                  {listing.latitude}
+                </Text>
+                <Text color="red.500" fontSize="sm">
+                  {listing.longitude}
                 </Text>
               </VStack>
             </Box>
