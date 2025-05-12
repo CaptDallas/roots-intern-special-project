@@ -11,6 +11,7 @@
   "dependencies": {
     "@chakra-ui/react": "^3.17.0",
     "@emotion/react": "^11.14.0",
+    "@mapbox/mapbox-gl-draw": "^1.5.0",
     "@prisma/client": "^6.7.0",
     "@tanstack/react-query": "^5.62.2",
     "@tanstack/react-query-devtools": "^5.62.2",
@@ -29,6 +30,7 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/geojson": "^7946.0.16",
+    "@types/mapbox__mapbox-gl-draw": "^1.4.8",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
