@@ -13,6 +13,7 @@
     "@emotion/react": "^11.14.0",
     "@mapbox/mapbox-gl-draw": "^1.5.0",
     "@prisma/client": "^6.7.0",
+    "@roots-homes/prisma-schema-mls-system": "1.2.5",
     "@tanstack/react-query": "^5.62.2",
     "@tanstack/react-query-devtools": "^5.62.2",
     "@types/mapbox-gl": "^3.4.1",

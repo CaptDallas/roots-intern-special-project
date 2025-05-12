@@ -12,8 +12,54 @@ type MapPoint = { latitude: number; longitude: number };
 
 interface MapWithMarkersProps {
   markers: MapPoint[];
+  onPolygonChange?: (polygon: Feature | null) => void;
 }
 
+function usePolygonDrawing(
+  mapRef: React.RefObject<MapRef | null>,
+  onPolygonChange?: (polygon: Feature | null) => void
+) {
+  const drawRef = useRef<MapboxDraw | null>(null);
+
+  const updatePolygon = () => {
+    if (!drawRef.current) return;
+    const allData = drawRef.current.getAll();
+    const polygon = allData.features[0] ?? null;
+    onPolygonChange?.(polygon);
+  };
+
+  const onMapLoad = () => {
+    const map = mapRef.current?.getMap();
+    if (!map || drawRef.current) return;
+
+    drawRef.current = new MapboxDraw({
+      displayControlsDefault: false,
+      controls: { polygon: true, trash: true }
+    });
+    map.addControl(drawRef.current, 'top-left');
+
+    map.on('draw.create', updatePolygon);
+    map.on('draw.update', updatePolygon);
+    map.on('draw.delete', () => onPolygonChange?.(null));
+  };
+
+  return { onMapLoad };
+}
+
+function useMapData(markers: MapPoint[]) {
+  const data: FeatureCollection<GeoJSONPoint> = {
+    type: 'FeatureCollection',
+    features: markers.map((pt: MapPoint) => ({
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'Point', coordinates: [pt.longitude, pt.latitude] }
+    }))
+  };
+
+  return { data };
+}
+
+// Layer definitions
 const clusterLayer: LayerSpecification = {
   id: 'clusters',
   type: 'circle',
@@ -47,52 +93,20 @@ const unclusteredPointLayer: LayerSpecification = {
   }
 };
 
-export default function MapWithMarkers({ markers }: MapWithMarkersProps) {
+export default function MapWithMarkers({ markers, onPolygonChange }: MapWithMarkersProps) {
   const mapRef = useRef<MapRef>(null);
-  const drawRef = useRef<MapboxDraw | null>(null);
-  const [drawnPolygon, setDrawnPolygon] = useState<Feature | null>(null);
-
-  // Convert markers array into a GeoJSON FeatureCollection
-  const data: FeatureCollection<GeoJSONPoint> = {
-    type: 'FeatureCollection',
-    features: markers.map(pt => ({
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'Point', coordinates: [pt.longitude, pt.latitude] }
-    }))
-  };
-
-  const updatePolygon = () => {
-    if (!drawRef.current) return;
-    const allData = drawRef.current.getAll();
-    setDrawnPolygon(allData.features[0] ?? null);
-  };
-
-  // When map loads we init the drawing tools
-  const onMapLoad = () => {
-    const map = mapRef.current?.getMap();
-    if (!map || drawRef.current) return;
-
-    drawRef.current = new MapboxDraw({
-      displayControlsDefault: false,
-      controls: { polygon: true, trash: true }
-    });
-    map.addControl(drawRef.current, 'top-left');
-
-    map.on('draw.create', updatePolygon);
-    map.on('draw.update', updatePolygon);
-    map.on('draw.delete', () => setDrawnPolygon(null));
-  };
+  const { onMapLoad } = usePolygonDrawing(mapRef, onPolygonChange);
+  const { data } = useMapData(markers);
 
   return (
     <ReactMapGL
       ref={mapRef}
       initialViewState={{
         longitude: markers[0]?.longitude ?? -122.4,
-        latitude:  markers[0]?.latitude  ?? 37.8,
-        zoom:      12
+        latitude: markers[0]?.latitude ?? 37.8,
+        zoom: 12
       }}
-      style={{ width: '100%', height: '400px' }}
+      style={{ width: '100%', height: '800px' }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_API_SECRET_KEY}
       attributionControl={false}

@@ -3,13 +3,11 @@
 import { useState } from 'react'
 import { Button, Heading, VStack, Text, Image, Box, SimpleGrid } from "@chakra-ui/react"
 import dynamic from 'next/dynamic';
+import { Feature, Polygon, Geometry } from 'geojson';
 
 const MapWithMarkers = dynamic(
   () => import('../components/MapWithMarkers'),
-  {
-    ssr: false,
-    loading: () => <p>Loading map…</p>,
-  }
+  { ssr: false, loading: () => <p>Loading map…</p> }
 );
 
 interface Listing {
@@ -34,14 +32,16 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showMap, setShowMap] = useState(false)
+  const [currentPolygon, setCurrentPolygon] = useState<Feature<Polygon> | null>(null)
 
+  // Use 'recent' API endpoint to get listings
   const fetchRecentListings = async () => {
     setLoading(true)
     setError(null)
     try {
       const response = await fetch('/api/listings/recent')
       if (!response.ok) {
-        throw new Error('Failed to fetch listings')
+        throw new Error('Failed to fetch recent listings')
       }
       const data = await response.json()
       setListings(data)
@@ -52,6 +52,44 @@ export default function Home() {
     }
   }
 
+  // Use polygon API endpoint to get listings
+  const fetchPolygonListings = async () => {
+    if (!currentPolygon) {
+      setError('Please draw a polygon on the map first')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await fetch('/api/listings/polygon', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(currentPolygon)
+      })
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch polygon listings')
+      }
+      const data = await response.json()
+      setListings(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handlePolygonChange = (polygon: Feature<Geometry> | null) => {
+    if (polygon && polygon.geometry.type === 'Polygon') {
+      setCurrentPolygon(polygon as Feature<Polygon>)
+    } else {
+      setCurrentPolygon(null)
+    }
+  }
+
   const handleMapClick = () => {
     setShowMap(!showMap)
   }
@@ -59,7 +97,7 @@ export default function Home() {
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-[32px] row-start-2 items-center w-full max-w-6xl">
-        <Heading>Recent Listings</Heading>
+        <Heading>Roots Home Explorer</Heading>
         
         <Button
           colorScheme="blue"
@@ -76,15 +114,27 @@ export default function Home() {
           {showMap ? 'Hide Map' : 'Show Map'}
         </Button>
 
-        {error && (
-          <Text color="red.500">Error: {error}</Text>
+        {showMap && (
+          <MapWithMarkers 
+            markers={listings.map(listing => ({
+              latitude: listing.latitude,
+              longitude: listing.longitude
+            }))} 
+            onPolygonChange={handlePolygonChange}
+          />
         )}
 
-        {showMap && (
-          <MapWithMarkers markers={listings.map(listing => ({
-            latitude: listing.latitude,
-            longitude: listing.longitude
-          }))} />
+        <Button
+          colorScheme="green"
+          onClick={fetchPolygonListings}
+          disabled={!currentPolygon}
+          loading={loading}
+        >
+          {loading ? 'Searching...' : 'Search in Polygon'}
+        </Button>
+
+        {error && (
+          <Text color="red.500">Error: {error}</Text>
         )}
 
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6} width="100%">
@@ -96,7 +146,7 @@ export default function Home() {
               overflow="hidden"
               p={4}
             >
-              {listing.photoUrls[0] && (
+              {listing.photoUrls && listing.photoUrls[0] && (
                 <Image
                   src={listing.photoUrls[0]}
                   alt={listing.address}

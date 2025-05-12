@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 export async function GET() {
   try {
     const listings = await prisma.listing.findMany({
-      take: 100,
+      take: 10,
       orderBy: {
         createdAt: 'desc'
       },

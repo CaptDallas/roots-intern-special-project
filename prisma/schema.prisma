@@ -90,6 +90,7 @@ model Listing {
   state                                   String?
   latitude                                Decimal
   longitude                               Decimal
+  geom                                    Unsupported("geometry(Point, 4326)")
   tileX                                   Int?
   tileY                                   Int?
   tileZ                                   Int?
