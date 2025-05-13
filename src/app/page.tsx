@@ -4,28 +4,12 @@ import { useState } from 'react'
 import { Button, Heading, VStack, Text, Image, Box, SimpleGrid } from "@chakra-ui/react"
 import dynamic from 'next/dynamic';
 import { Feature, Polygon, Geometry } from 'geojson';
+import { Listing } from '@/types/listing';
 
 const InteractiveMap = dynamic(
   () => import('../components/InteractiveMap'),
   { ssr: false, loading: () => <p>Loading map…</p> }
 );
-
-interface Listing {
-  id: string
-  address: string
-  city: string | null
-  state: string | null
-  price: number
-  bedrooms: number | null
-  bathrooms: number | null
-  squareFeet: number | null
-  propertyType: string
-  photoUrls: string[]
-  status: string
-  createdAt: string
-  latitude: number
-  longitude: number
-}
 
 export default function Home() {
   const [listings, setListings] = useState<Listing[]>([])
@@ -33,6 +17,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [showMap, setShowMap] = useState(false)
   const [currentPolygon, setCurrentPolygon] = useState<Feature<Polygon> | null>(null)
+  const [showOnlyAssumable, setShowOnlyAssumable] = useState(false)
 
   // Use 'recent' API endpoint to get listings
   const fetchRecentListings = async () => {
@@ -94,6 +79,16 @@ export default function Home() {
     setShowMap(!showMap)
   }
 
+  // Toggle whether to show only assumable listings
+  const toggleAssumableFilter = () => {
+    setShowOnlyAssumable(!showOnlyAssumable);
+  };
+
+  // Filter listings based on the showOnlyAssumable state
+  const filteredListings = showOnlyAssumable 
+    ? listings.filter(listing => listing.isAssumable)
+    : listings;
+
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-[32px] row-start-2 items-center w-full max-w-6xl">
@@ -116,7 +111,7 @@ export default function Home() {
 
         {showMap && (
           <InteractiveMap
-            listings={listings}
+            listings={filteredListings}
             onPolygonChange={handlePolygonChange}
           />
         )}
@@ -130,12 +125,19 @@ export default function Home() {
           {loading ? 'Searching...' : 'Search in Polygon'}
         </Button>
 
+        <Button
+          colorScheme="purple"
+          onClick={toggleAssumableFilter}
+        >
+          {showOnlyAssumable ? 'Show All Listings' : 'Show Only Assumable'}
+        </Button>
+
         {error && (
           <Text color="red.500">Error: {error}</Text>
         )}
 
         <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6} width="100%">
-          {listings.map((listing) => (
+          {filteredListings.map((listing) => (
             <Box
               key={listing.id}
               borderWidth="1px"
@@ -177,6 +179,11 @@ export default function Home() {
                 <Text color="blue.500" fontSize="sm">
                   {listing.status}
                 </Text>
+                {listing.isAssumable && (
+                  <Text color="green.500" fontSize="sm" fontWeight="bold">
+                    Assumable
+                  </Text>
+                )}
                 <Text color="red.500" fontSize="sm">
                   {listing.latitude}
                 </Text>

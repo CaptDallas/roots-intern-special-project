@@ -9,20 +9,7 @@ import type { FeatureCollection, Point as GeoJSONPoint, Feature } from 'geojson'
 import type { LayerSpecification, SourceSpecification } from 'react-map-gl/mapbox';
 import { Box, Text, VStack, Image, Skeleton } from '@chakra-ui/react';
 import type { MapMouseEvent } from 'mapbox-gl';
-
-type Listing = { 
-  latitude: number; 
-  longitude: number;
-  id?: string;
-  address?: string;
-  price?: number;
-  bedrooms?: number | null;
-  bathrooms?: number | null;
-  squareFeet?: number | null;
-  propertyType?: string;
-  status?: string;
-  photoUrls?: string[];
-};
+import { Listing } from '@/types/listing';
 
 interface InteractiveMapProps {
   listings: Listing[];
@@ -120,7 +107,8 @@ function useListingsData(listings: Listing[]) {
         squareFeet: listing.squareFeet,
         propertyType: listing.propertyType,
         status: listing.status,
-        photoUrls: listing.photoUrls
+        photoUrls: listing.photoUrls,
+        isAssumable: listing.isAssumable
       },
       geometry: { 
         type: 'Point', 
@@ -191,6 +179,11 @@ function ListingPopup({
           {(listing?.status || point.properties.status) && (
             <Text color="blue.500" fontSize="sm">
               {listing?.status || point.properties.status}
+            </Text>
+          )}
+          {(listing?.isAssumable || point.properties.isAssumable) && (
+            <Text color="green.500" fontSize="sm" fontWeight="bold">
+              Assumable
             </Text>
           )}
         </VStack>

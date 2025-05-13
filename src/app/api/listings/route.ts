@@ -39,7 +39,10 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const data = await request.json()
-    const listing = await listingService.update(data)
+    if (!data.id) {
+      return NextResponse.json({ error: 'ID is required' }, { status: 400 })
+    }
+    const listing = await listingService.update(data.id, data)
     return NextResponse.json(listing)
   } catch (error) {
     return NextResponse.json({ error: 'Failed to update listing' }, { status: 500 })
