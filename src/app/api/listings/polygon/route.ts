@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Feature, Polygon } from 'geojson'
 
+// filters for assumable listings
 export async function POST(request: Request) {
   try {
     let polygon: Feature<Polygon>
@@ -56,12 +57,14 @@ export async function POST(request: Request) {
           l.status,
           l."createdAt" as "createdAt",
           l.latitude::float as latitude,
-          l.longitude::float as longitude
+          l.longitude::float as longitude,
+          l."isAssumable" as "isAssumable"
         FROM "Listing" l
         WHERE ST_Contains(
           ST_SetSRID(ST_GeomFromText(${wktPolygon}), 4326),
           ST_SetSRID(ST_MakePoint(l.longitude::float, l.latitude::float), 4326)
         )
+        AND l."isAssumable" = true
       `
       return NextResponse.json(listings)
     } catch (dbError) {

@@ -1,6 +1,6 @@
 'use client';  // Next 13+ App Router; omit for pages/
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import ReactMapGL, { Source, Layer, MapRef, Popup } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -28,6 +28,50 @@ interface InteractiveMapProps {
   listings: Listing[];
   onPolygonChange?: (polygon: Feature | null) => void;
 }
+
+type HoveredPoint = {
+  longitude: number;
+  latitude: number;
+  properties: any;
+  originalListing?: Listing;
+} | null;
+
+// Mapbox layer definitions
+const MAP_LAYERS = {
+  clusterLayer: {
+    id: 'clusters',
+    type: 'circle',
+    source: 'points',
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 25, 25],
+      'circle-color': ['step', ['get', 'point_count'], 'grey', 10, 'grey', 25, 'grey']
+    }
+  } as LayerSpecification,
+
+  clusterCountLayer: {
+    id: 'cluster-count',
+    type: 'symbol',
+    source: 'points',
+    filter: ['has', 'point_count'],
+    layout: {
+      'text-field': '{point_count_abbreviated}',
+      'text-size': 12
+    }
+  } as LayerSpecification,
+
+  unclusteredPointLayer: {
+    id: 'unclustered-point',
+    type: 'circle',
+    source: 'points',
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-radius': 6,
+      'circle-color': 'grey'
+    }
+  } as LayerSpecification
+};
+
 
 function usePolygonDrawing(
   mapRef: React.RefObject<MapRef | null>,
@@ -60,114 +104,175 @@ function usePolygonDrawing(
   return { onMapLoad };
 }
 
-function useMapData(listings: Listing[]) {
-  const data: FeatureCollection<GeoJSONPoint> = {
+
+function useListingsData(listings: Listing[]) {
+  // Convert listings to GeoJSON format
+  const geoJsonData = useMemo<FeatureCollection<GeoJSONPoint>>(() => ({
     type: 'FeatureCollection',
-    features: listings.map((pt: Listing) => ({
+    features: listings.map((listing: Listing) => ({
       type: 'Feature',
       properties: {
-        id: pt.id,
-        address: pt.address,
-        price: pt.price,
-        bedrooms: pt.bedrooms,
-        bathrooms: pt.bathrooms,
-        squareFeet: pt.squareFeet,
-        propertyType: pt.propertyType,
-        status: pt.status,
-        photoUrls: pt.photoUrls
+        id: listing.id,
+        address: listing.address,
+        price: listing.price,
+        bedrooms: listing.bedrooms,
+        bathrooms: listing.bathrooms,
+        squareFeet: listing.squareFeet,
+        propertyType: listing.propertyType,
+        status: listing.status,
+        photoUrls: listing.photoUrls
       },
-      geometry: { type: 'Point', coordinates: [pt.longitude, pt.latitude] }
+      geometry: { 
+        type: 'Point', 
+        coordinates: [listing.longitude, listing.latitude] 
+      }
     }))
-  };
+  }), [listings]);
 
-  return { data };
+  // Create a lookup map for fast access to original listing data
+  const listingsMap = useMemo(() => {
+    const map = new Map<string, Listing>();
+    listings.forEach(listing => {
+      if (listing.id) {
+        map.set(listing.id, listing);
+      }
+    });
+    return map;
+  }, [listings]);
+
+  return { geoJsonData, listingsMap };
 }
 
-// Layer definitions
-const clusterLayer: LayerSpecification = {
-  id: 'clusters',
-  type: 'circle',
-  source: 'points',
-  filter: ['has', 'point_count'],
-  paint: {
-    'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 25, 25],
-    'circle-color': ['step', ['get', 'point_count'], 'grey', 10, 'grey', 25, 'grey']
-  }
-};
+// ListingPopup component
+function ListingPopup({ 
+  point, 
+  onClose 
+}: { 
+  point: HoveredPoint, 
+  onClose: () => void 
+}) {
+  const [imageError, setImageError] = useState(false);
+  const listing = point?.originalListing;
 
-const clusterCountLayer: LayerSpecification = {
-  id: 'cluster-count',
-  type: 'symbol',
-  source: 'points',
-  filter: ['has', 'point_count'],
-  layout: {
-    'text-field': '{point_count_abbreviated}',
-    'text-size': 12
-  }
-};
+  if (!point) return null;
 
-const unclusteredPointLayer: LayerSpecification = {
-  id: 'unclustered-point',
-  type: 'circle',
-  source: 'points',
-  filter: ['!', ['has', 'point_count']],
-  paint: {
-    'circle-radius': 6,
-    'circle-color': 'grey'
+  return (
+    <Popup
+      longitude={point.longitude}
+      latitude={point.latitude}
+      closeButton={false}
+      closeOnClick={false}
+      anchor="bottom"
+      offset={[0, -10]}
+      onClose={onClose}
+    >
+      <Box p={2} maxW="300px">
+        {/* Image Section */}
+        {renderListingImage(listing, imageError, setImageError)}
+        
+        {/* Details Section */}
+        <VStack align="start" gap={1}>
+          <Text fontWeight="bold" fontSize="lg">
+            ${listing?.price?.toLocaleString() || point.properties.price?.toLocaleString()}
+          </Text>
+          {(listing?.address || point.properties.address) && (
+            <Text>{listing?.address || point.properties.address}</Text>
+          )}
+          <Text>
+            {listing?.bedrooms && `${listing.bedrooms} beds`}
+            {listing?.bathrooms && ` • ${listing.bathrooms} baths`}
+            {listing?.squareFeet && ` • ${listing.squareFeet} sqft`}
+          </Text>
+          {(listing?.propertyType || point.properties.propertyType) && (
+            <Text color="gray.500" fontSize="sm">
+              {listing?.propertyType || point.properties.propertyType}
+            </Text>
+          )}
+          {(listing?.status || point.properties.status) && (
+            <Text color="blue.500" fontSize="sm">
+              {listing?.status || point.properties.status}
+            </Text>
+          )}
+        </VStack>
+      </Box>
+    </Popup>
+  );
+}
+
+// Helper function for rendering listing image
+function renderListingImage(
+  listing?: Listing, 
+  imageError: boolean = false, 
+  setImageError?: (error: boolean) => void
+) {
+  if (listing?.photoUrls && Array.isArray(listing.photoUrls) && listing.photoUrls.length > 0) {
+    if (!imageError) {
+      return (
+        <Image
+          src={listing.photoUrls[0]}
+          alt={listing.address || 'Property'}
+          height="150px"
+          width="100%"
+          objectFit="cover"
+          borderRadius="md"
+          mb={2}
+          onError={() => setImageError?.(true)}
+        />
+      );
+    } else {
+      return renderImageFallback("Image Failed to Load");
+    }
+  } else {
+    return renderImageFallback("No Image Available");
   }
-};
+}
+
+// Helper function for rendering image fallbacks
+function renderImageFallback(message: string) {
+  return (
+    <Box 
+      height="150px" 
+      width="100%" 
+      bg="gray.200" 
+      display="flex" 
+      alignItems="center" 
+      justifyContent="center" 
+      borderRadius="md" 
+      mb={2}
+    >
+      <Text color="gray.500">{message}</Text>
+    </Box>
+  );
+}
+
 
 export default function InteractiveMap({ listings, onPolygonChange }: InteractiveMapProps) {
   const mapRef = useRef<MapRef>(null);
   const { onMapLoad } = usePolygonDrawing(mapRef, onPolygonChange);
-  const { data } = useMapData(listings);
-  const [hoveredPoint, setHoveredPoint] = useState<{
-    longitude: number;
-    latitude: number;
-    properties: any;
-    originalMarker?: Listing;
-  } | null>(null);
-  const [imageError, setImageError] = useState(false);
-  
-  // A dictionary of id's to Listing objects
-  const markersRef = useRef<Map<string, Listing>>(new Map());
-  
-  useEffect(() => {
-    const markersMap = new Map<string, Listing>();
-    listings.forEach(listing => {
-      if (listing.id) {
-        markersMap.set(listing.id, listing);
-      }
-    });
-    markersRef.current = markersMap;
-  }, [listings]);
+  const { geoJsonData, listingsMap } = useListingsData(listings);
+  const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint>(null);
 
-  const onMouseEnter = (e: MapMouseEvent) => {
-    if (e.features && e.features.length > 0) {
-      const feature = e.features[0];
-      
-      if (feature.properties && !feature.properties.point_count) {
-        const coordinates = feature.geometry.type === 'Point' ? feature.geometry.coordinates : null;
-        
-        if (coordinates && feature.properties.id) {
-          // Get the original marker data using the id
-          const originalMarker = markersRef.current.get(feature.properties.id);
-          
-          const properties = { ...feature.properties };
-          
-          setHoveredPoint({
-            longitude: coordinates[0],
-            latitude: coordinates[1],
-            properties: properties,
-            originalMarker: originalMarker
-          });
-          setImageError(false);
-        }
-      }
-    }
+  const handleMouseEnter = (e: MapMouseEvent) => {
+    if (!e.features?.length) return;
+    
+    const feature = e.features[0];
+    if (!feature.properties || feature.properties.point_count) return;
+    
+    const coordinates = feature.geometry.type === 'Point' ? feature.geometry.coordinates : null;
+    if (!coordinates || !feature.properties.id) return;
+    
+    // Get the original listing data using the id
+    const originalListing = listingsMap.get(feature.properties.id);
+    
+    setHoveredPoint({
+      longitude: coordinates[0],
+      latitude: coordinates[1],
+      properties: { ...feature.properties },
+      originalListing
+    });
   };
 
-  const onMouseLeave = () => {
+  const handleMouseLeave = () => {
     setHoveredPoint(null);
   };
 
@@ -185,108 +290,29 @@ export default function InteractiveMap({ listings, onPolygonChange }: Interactiv
       attributionControl={false}
       onLoad={onMapLoad}
       interactiveLayerIds={['unclustered-point']}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
+      {/* Map Data Source */}
       <Source
         id="points"
         type="geojson"
-        data={data}
+        data={geoJsonData}
         cluster={true}
         clusterMaxZoom={14}
         clusterRadius={50}
       >
-        <Layer {...clusterLayer} />
-        <Layer {...clusterCountLayer} />
-        <Layer {...unclusteredPointLayer} />
+        <Layer {...MAP_LAYERS.clusterLayer} />
+        <Layer {...MAP_LAYERS.clusterCountLayer} />
+        <Layer {...MAP_LAYERS.unclusteredPointLayer} />
       </Source>
 
+      {/* Popup for hovered point */}
       {hoveredPoint && (
-        <Popup
-          longitude={hoveredPoint.longitude}
-          latitude={hoveredPoint.latitude}
-          closeButton={false}
-          closeOnClick={false}
-          anchor="bottom"
-          offset={[0, -10]}
-        > 
-          <Box p={2} maxW="300px">
-            {hoveredPoint.originalMarker?.photoUrls && 
-             Array.isArray(hoveredPoint.originalMarker.photoUrls) && 
-             hoveredPoint.originalMarker.photoUrls.length > 0 ? (
-              !imageError ? (
-                (() => {
-                  return (
-                    <Image
-                      src={hoveredPoint.originalMarker.photoUrls[0]}
-                      alt={hoveredPoint.originalMarker.address || ''}
-                      height="150px"
-                      width="100%"
-                      objectFit="cover"
-                      borderRadius="md"
-                      mb={2}
-                      onLoad={() => console.log('POPUP IMAGE: Image loaded successfully')}
-                      onError={() => {
-                        console.error('POPUP IMAGE: Image failed to load:', hoveredPoint.originalMarker?.photoUrls?.[0]);
-                        setImageError(true);
-                      }}
-                    />
-                  );
-                })()
-              ) : (
-                <Box 
-                  height="150px" 
-                  width="100%" 
-                  bg="gray.200" 
-                  display="flex" 
-                  alignItems="center" 
-                  justifyContent="center" 
-                  borderRadius="md" 
-                  mb={2}
-                >
-                  <Text color="gray.500">Image Failed to Load</Text>
-                </Box>
-              )
-            ) : (
-              <Box 
-                height="150px" 
-                width="100%" 
-                bg="gray.200" 
-                display="flex" 
-                alignItems="center" 
-                justifyContent="center" 
-                borderRadius="md" 
-                mb={2}
-              >
-                <Text color="gray.500">No Image Available</Text>
-              </Box>
-            )}
-            
-            <VStack align="start" gap={1}>
-              <Text fontWeight="bold" fontSize="lg">
-                ${hoveredPoint.originalMarker?.price?.toLocaleString() || hoveredPoint.properties.price?.toLocaleString()}
-              </Text>
-              {(hoveredPoint.originalMarker?.address || hoveredPoint.properties.address) && (
-                <Text>{hoveredPoint.originalMarker?.address || hoveredPoint.properties.address}</Text>
-              )}
-              <Text>
-                {hoveredPoint.originalMarker?.bedrooms && `${hoveredPoint.originalMarker.bedrooms} beds`}
-                {hoveredPoint.originalMarker?.bathrooms && ` • ${hoveredPoint.originalMarker.bathrooms} baths`}
-                {hoveredPoint.originalMarker?.squareFeet && ` • ${hoveredPoint.originalMarker.squareFeet} sqft`}
-              </Text>
-              {(hoveredPoint.originalMarker?.propertyType || hoveredPoint.properties.propertyType) && (
-                <Text color="gray.500" fontSize="sm">
-                  {hoveredPoint.originalMarker?.propertyType || hoveredPoint.properties.propertyType}
-                </Text>
-              )}
-              {(hoveredPoint.originalMarker?.status || hoveredPoint.properties.status) && (
-                <Text color="blue.500" fontSize="sm">
-                  {hoveredPoint.originalMarker?.status || hoveredPoint.properties.status}
-                </Text>
-              )}
-            </VStack>
-          </Box>
-        </Popup>
+        <ListingPopup 
+          point={hoveredPoint} 
+          onClose={handleMouseLeave} 
+        />
       )}
     </ReactMapGL>
   );
