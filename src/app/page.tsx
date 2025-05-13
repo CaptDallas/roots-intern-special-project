@@ -116,19 +116,7 @@ export default function Home() {
 
         {showMap && (
           <InteractiveMap
-            markers={listings.map(listing => ({
-              id: listing.id,
-              latitude: listing.latitude,
-              longitude: listing.longitude,
-              address: listing.address,
-              price: listing.price,
-              bedrooms: listing.bedrooms,
-              bathrooms: listing.bathrooms,
-              squareFeet: listing.squareFeet,
-              propertyType: listing.propertyType,
-              status: listing.status,
-              photoUrls: listing.photoUrls
-            }))} 
+            listings={listings}
             onPolygonChange={handlePolygonChange}
           />
         )}
@@ -156,14 +144,19 @@ export default function Home() {
               p={4}
             >
               {listing.photoUrls && listing.photoUrls[0] && (
-                <Image
-                  src={listing.photoUrls[0]}
-                  alt={listing.address}
-                  height="200px"
-                  width="100%"
-                  objectFit="cover"
-                  borderRadius="md"
-                />
+                <>
+                  <Image
+                    src={listing.photoUrls[0]}
+                    alt={listing.address}
+                    height="200px"
+                    width="100%"
+                    objectFit="cover"
+                    borderRadius="md"
+                    onError={(e) => {
+                      console.error('Card image failed to load:', e.currentTarget.src);
+                    }}
+                  />
+                </>
               )}
               <VStack align="start" mt={4} gap={2}>
                 <Text fontWeight="bold" fontSize="xl">

@@ -1,16 +1,16 @@
 'use client';  // Next 13+ App Router; omit for pages/
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import ReactMapGL, { Source, Layer, MapRef, Popup } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import type { FeatureCollection, Point as GeoJSONPoint, Feature } from 'geojson';
 import type { LayerSpecification, SourceSpecification } from 'react-map-gl/mapbox';
-import { Box, Text, VStack, Image } from '@chakra-ui/react';
+import { Box, Text, VStack, Image, Skeleton } from '@chakra-ui/react';
 import type { MapMouseEvent } from 'mapbox-gl';
 
-type ListingPoint = { 
+type Listing = { 
   latitude: number; 
   longitude: number;
   id?: string;
@@ -25,7 +25,7 @@ type ListingPoint = {
 };
 
 interface InteractiveMapProps {
-  markers: ListingPoint[];
+  listings: Listing[];
   onPolygonChange?: (polygon: Feature | null) => void;
 }
 
@@ -60,10 +60,10 @@ function usePolygonDrawing(
   return { onMapLoad };
 }
 
-function useMapData(markers: ListingPoint[]) {
+function useMapData(listings: Listing[]) {
   const data: FeatureCollection<GeoJSONPoint> = {
     type: 'FeatureCollection',
-    features: markers.map((pt: ListingPoint) => ({
+    features: listings.map((pt: Listing) => ({
       type: 'Feature',
       properties: {
         id: pt.id,
@@ -91,7 +91,7 @@ const clusterLayer: LayerSpecification = {
   filter: ['has', 'point_count'],
   paint: {
     'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 25, 25],
-    'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 10, '#f1f075', 25, '#f28cb1']
+    'circle-color': ['step', ['get', 'point_count'], 'grey', 10, 'grey', 25, 'grey']
   }
 };
 
@@ -113,31 +113,55 @@ const unclusteredPointLayer: LayerSpecification = {
   filter: ['!', ['has', 'point_count']],
   paint: {
     'circle-radius': 6,
-    'circle-color': '#11b4da'
+    'circle-color': 'grey'
   }
 };
 
-export default function InteractiveMap({ markers, onPolygonChange }: InteractiveMapProps) {
+export default function InteractiveMap({ listings, onPolygonChange }: InteractiveMapProps) {
   const mapRef = useRef<MapRef>(null);
   const { onMapLoad } = usePolygonDrawing(mapRef, onPolygonChange);
-  const { data } = useMapData(markers);
+  const { data } = useMapData(listings);
   const [hoveredPoint, setHoveredPoint] = useState<{
     longitude: number;
     latitude: number;
     properties: any;
+    originalMarker?: Listing;
   } | null>(null);
+  const [imageError, setImageError] = useState(false);
+  
+  // A dictionary of id's to Listing objects
+  const markersRef = useRef<Map<string, Listing>>(new Map());
+  
+  useEffect(() => {
+    const markersMap = new Map<string, Listing>();
+    listings.forEach(listing => {
+      if (listing.id) {
+        markersMap.set(listing.id, listing);
+      }
+    });
+    markersRef.current = markersMap;
+  }, [listings]);
 
   const onMouseEnter = (e: MapMouseEvent) => {
     if (e.features && e.features.length > 0) {
       const feature = e.features[0];
-      if (feature.properties && !feature.properties.point_count) { // Only show popup for unclustered points
+      
+      if (feature.properties && !feature.properties.point_count) {
         const coordinates = feature.geometry.type === 'Point' ? feature.geometry.coordinates : null;
-        if (coordinates) {
+        
+        if (coordinates && feature.properties.id) {
+          // Get the original marker data using the id
+          const originalMarker = markersRef.current.get(feature.properties.id);
+          
+          const properties = { ...feature.properties };
+          
           setHoveredPoint({
             longitude: coordinates[0],
             latitude: coordinates[1],
-            properties: feature.properties
+            properties: properties,
+            originalMarker: originalMarker
           });
+          setImageError(false);
         }
       }
     }
@@ -151,8 +175,8 @@ export default function InteractiveMap({ markers, onPolygonChange }: Interactive
     <ReactMapGL
       ref={mapRef}
       initialViewState={{
-        longitude: markers[0]?.longitude ?? -112.424063,
-        latitude: markers[0]?.latitude ?? 33.562417,
+        longitude: listings[0]?.longitude ?? -112.424063,
+        latitude: listings[0]?.latitude ?? 33.562417,
         zoom: 12
       }}
       style={{ width: '100%', height: '800px' }}
@@ -185,39 +209,79 @@ export default function InteractiveMap({ markers, onPolygonChange }: Interactive
           closeOnClick={false}
           anchor="bottom"
           offset={[0, -10]}
-        >
+        > 
           <Box p={2} maxW="300px">
-            {hoveredPoint.properties.photoUrls && hoveredPoint.properties.photoUrls.length > 0 && (
-              <Image
-                src={hoveredPoint.properties.photoUrls[0]}
-                alt={hoveredPoint.properties.address}
-                height="150px"
-                width="100%"
-                objectFit="cover"
-                borderRadius="md"
+            {hoveredPoint.originalMarker?.photoUrls && 
+             Array.isArray(hoveredPoint.originalMarker.photoUrls) && 
+             hoveredPoint.originalMarker.photoUrls.length > 0 ? (
+              !imageError ? (
+                (() => {
+                  return (
+                    <Image
+                      src={hoveredPoint.originalMarker.photoUrls[0]}
+                      alt={hoveredPoint.originalMarker.address || ''}
+                      height="150px"
+                      width="100%"
+                      objectFit="cover"
+                      borderRadius="md"
+                      mb={2}
+                      onLoad={() => console.log('POPUP IMAGE: Image loaded successfully')}
+                      onError={() => {
+                        console.error('POPUP IMAGE: Image failed to load:', hoveredPoint.originalMarker?.photoUrls?.[0]);
+                        setImageError(true);
+                      }}
+                    />
+                  );
+                })()
+              ) : (
+                <Box 
+                  height="150px" 
+                  width="100%" 
+                  bg="gray.200" 
+                  display="flex" 
+                  alignItems="center" 
+                  justifyContent="center" 
+                  borderRadius="md" 
+                  mb={2}
+                >
+                  <Text color="gray.500">Image Failed to Load</Text>
+                </Box>
+              )
+            ) : (
+              <Box 
+                height="150px" 
+                width="100%" 
+                bg="gray.200" 
+                display="flex" 
+                alignItems="center" 
+                justifyContent="center" 
+                borderRadius="md" 
                 mb={2}
-              />
+              >
+                <Text color="gray.500">No Image Available</Text>
+              </Box>
             )}
+            
             <VStack align="start" gap={1}>
               <Text fontWeight="bold" fontSize="lg">
-                ${hoveredPoint.properties.price?.toLocaleString()}
+                ${hoveredPoint.originalMarker?.price?.toLocaleString() || hoveredPoint.properties.price?.toLocaleString()}
               </Text>
-              {hoveredPoint.properties.address && (
-                <Text>{hoveredPoint.properties.address}</Text>
+              {(hoveredPoint.originalMarker?.address || hoveredPoint.properties.address) && (
+                <Text>{hoveredPoint.originalMarker?.address || hoveredPoint.properties.address}</Text>
               )}
               <Text>
-                {hoveredPoint.properties.bedrooms && `${hoveredPoint.properties.bedrooms} beds`}
-                {hoveredPoint.properties.bathrooms && ` • ${hoveredPoint.properties.bathrooms} baths`}
-                {hoveredPoint.properties.squareFeet && ` • ${hoveredPoint.properties.squareFeet} sqft`}
+                {hoveredPoint.originalMarker?.bedrooms && `${hoveredPoint.originalMarker.bedrooms} beds`}
+                {hoveredPoint.originalMarker?.bathrooms && ` • ${hoveredPoint.originalMarker.bathrooms} baths`}
+                {hoveredPoint.originalMarker?.squareFeet && ` • ${hoveredPoint.originalMarker.squareFeet} sqft`}
               </Text>
-              {hoveredPoint.properties.propertyType && (
+              {(hoveredPoint.originalMarker?.propertyType || hoveredPoint.properties.propertyType) && (
                 <Text color="gray.500" fontSize="sm">
-                  {hoveredPoint.properties.propertyType}
+                  {hoveredPoint.originalMarker?.propertyType || hoveredPoint.properties.propertyType}
                 </Text>
               )}
-              {hoveredPoint.properties.status && (
+              {(hoveredPoint.originalMarker?.status || hoveredPoint.properties.status) && (
                 <Text color="blue.500" fontSize="sm">
-                  {hoveredPoint.properties.status}
+                  {hoveredPoint.originalMarker?.status || hoveredPoint.properties.status}
                 </Text>
               )}
             </VStack>
