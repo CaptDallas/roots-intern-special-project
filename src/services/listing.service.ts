@@ -1,57 +1,27 @@
 import { prisma } from '@/lib/prisma'
+import { Listing } from '@/types/listing'
 
-// Type for creating a new listing with required fields
-export interface CreateListingInput {
-  // Required fields
-  id: string
-  address: string
-  price: number
-  propertyType: string
-  latitude: number
-  longitude: number
+// Type for creating a new listing with additional required fields
+export type CreateListingInput = Omit<Listing, 'createdAt'> & {
+  // Additional required fields not included in the basic Listing type
   mlsProviderId: string
   parcelNumber: string
   zipCode: string
   rawDataHash: string
   mlsListingId: string
-  status: string
   mlsInstanceId: string
   unitNumber: string
   modifierScore: number
   isRootsListing: boolean
-  
-  // Optional fields
-  city?: string
-  state?: string
-  bedrooms?: number
-  bathrooms?: number
-  squareFeet?: number
-  photoUrls?: string[]
-  isAssumable?: boolean
-  // Add other fields as needed
 }
 
 // Type for updating an existing listing
-export interface UpdateListingInput {
-  id: string
-  // All fields are optional for updates
-  address?: string
-  city?: string
-  state?: string
-  price?: number
-  bedrooms?: number
-  bathrooms?: number
-  squareFeet?: number
-  propertyType?: string
-  photoUrls?: string[]
-  latitude?: number
-  longitude?: number
-  isAssumable?: boolean
-  // Add other fields as needed
+export type UpdateListingInput = Partial<Omit<Listing, 'id' | 'createdAt'>> & {
+  id: string // ID is always required for updates
 }
 
 // Basic fields to select for listing results
-const defaultListingSelect = {
+export const defaultListingSelect = {
   id: true,
   address: true,
   city: true,
@@ -69,7 +39,9 @@ const defaultListingSelect = {
   isAssumable: true
 }
 
+
 export class ListingService {
+  // needs updating
   async create(data: CreateListingInput) {
     return prisma.listing.create({
       data: data as any,

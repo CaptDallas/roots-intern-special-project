@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Button, Heading, VStack, Text, Image, Box, SimpleGrid } from "@chakra-ui/react"
+import { Button, Heading, VStack, Text, Image, Box, SimpleGrid, Flex, Grid, GridItem } from "@chakra-ui/react"
 import dynamic from 'next/dynamic';
 import { Feature, Polygon, Geometry } from 'geojson';
 import { Listing } from '@/types/listing';
@@ -15,7 +15,7 @@ export default function Home() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showMap, setShowMap] = useState(false)
+  const [showMap, setShowMap] = useState(true) // Default to showing the map
   const [currentPolygon, setCurrentPolygon] = useState<Feature<Polygon> | null>(null)
   const [showOnlyAssumable, setShowOnlyAssumable] = useState(false)
 
@@ -90,10 +90,20 @@ export default function Home() {
     : listings;
 
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center w-full max-w-6xl">
-        <Heading>Roots Home Explorer</Heading>
-        
+    <Box padding="0" maxWidth="1800px" margin="0 auto">
+      <Heading 
+        textAlign="center" 
+        marginBottom="6" 
+        padding="4"
+        borderRadius="lg"
+        bg="#CDFF64"
+        color="black"
+        boxShadow="md"
+      >
+        Roots Home Explorer
+      </Heading>
+      
+      <Flex justifyContent="center" gap="4" marginBottom="6">
         <Button
           colorScheme="blue"
           onClick={fetchRecentListings}
@@ -108,13 +118,6 @@ export default function Home() {
         >
           {showMap ? 'Hide Map' : 'Show Map'}
         </Button>
-
-        {showMap && (
-          <InteractiveMap
-            listings={filteredListings}
-            onPolygonChange={handlePolygonChange}
-          />
-        )}
 
         <Button
           colorScheme="green"
@@ -131,70 +134,80 @@ export default function Home() {
         >
           {showOnlyAssumable ? 'Show All Listings' : 'Show Only Assumable'}
         </Button>
+      </Flex>
 
-        {error && (
-          <Text color="red.500">Error: {error}</Text>
-        )}
+      {error && (
+        <Text color="red.500" textAlign="center" marginBottom="4">Error: {error}</Text>
+      )}
 
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6} width="100%">
-          {filteredListings.map((listing) => (
-            <Box
-              key={listing.id}
-              borderWidth="1px"
-              borderRadius="lg"
-              overflow="hidden"
-              p={4}
-            >
-              {listing.photoUrls && listing.photoUrls[0] && (
-                <>
-                  <Image
-                    src={listing.photoUrls[0]}
-                    alt={listing.address}
-                    height="200px"
-                    width="100%"
-                    objectFit="cover"
-                    borderRadius="md"
-                    onError={(e) => {
-                      console.error('Card image failed to load:', e.currentTarget.src);
-                    }}
-                  />
-                </>
-              )}
-              <VStack align="start" mt={4} gap={2}>
-                <Text fontWeight="bold" fontSize="xl">
-                  ${listing.price.toLocaleString()}
-                </Text>
-                <Text>{listing.address}</Text>
-                {listing.city && listing.state && (
-                  <Text>{`${listing.city}, ${listing.state}`}</Text>
-                )}
-                <Text>
-                  {listing.bedrooms && `${listing.bedrooms} beds`}
-                  {listing.bathrooms && ` • ${listing.bathrooms} baths`}
-                  {listing.squareFeet && ` • ${listing.squareFeet} sqft`}
-                </Text>
-                <Text color="gray.500" fontSize="sm">
-                  {listing.propertyType}
-                </Text>
-                <Text color="blue.500" fontSize="sm">
-                  {listing.status}
-                </Text>
-                {listing.isAssumable && (
-                  <Text color="green.500" fontSize="sm" fontWeight="bold">
-                    Assumable
-                  </Text>
-                )}
-                <Text color="red.500" fontSize="sm">
-                  {listing.latitude}
-                </Text>
-                <Text color="red.500" fontSize="sm">
-                  {listing.longitude}
-                </Text>
-              </VStack>
+      <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap="6">
+        {/* Map Column */}
+        {showMap && (
+          <GridItem position="sticky" top="0">
+            <Box height={{ base: "500px", lg: "calc(100vh - 200px)" }} borderRadius="lg" overflow="hidden">
+              <InteractiveMap
+                listings={filteredListings}
+                onPolygonChange={handlePolygonChange}
+              />
             </Box>
-          ))}
-        </SimpleGrid>
-      </main>
-    </div>
+          </GridItem>
+        )}
+        {/* Listings Column */}
+        <GridItem overflow="auto" maxHeight={{ lg: "calc(100vh - 200px)" }}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
+            {filteredListings.map((listing) => (
+              <Box
+                key={listing.id}
+                borderWidth="1px"
+                borderRadius="lg"
+                overflow="hidden"
+                p={4}
+              >
+                {listing.photoUrls && listing.photoUrls[0] && (
+                  <>
+                    <Image
+                      src={listing.photoUrls[0]}
+                      alt={listing.address}
+                      height="150px"
+                      width="100%"
+                      objectFit="cover"
+                      borderRadius="md"
+                      onError={(e) => {
+                        console.error('Card image failed to load:', e.currentTarget.src);
+                      }}
+                    />
+                  </>
+                )}
+                <VStack align="start" mt={4} gap={2}>
+                  <Text fontWeight="bold" fontSize="xl">
+                    ${listing.price.toLocaleString()}
+                  </Text>
+                  <Text>{listing.address}</Text>
+                  {listing.city && listing.state && (
+                    <Text>{`${listing.city}, ${listing.state}`}</Text>
+                  )}
+                  <Text>
+                    {listing.bedrooms && `${listing.bedrooms} beds`}
+                    {listing.bathrooms && ` • ${listing.bathrooms} baths`}
+                    {listing.squareFeet && ` • ${listing.squareFeet} sqft`}
+                  </Text>
+                  <Text color="gray.500" fontSize="sm">
+                    {listing.propertyType}
+                  </Text>
+                  <Text color="blue.500" fontSize="sm">
+                    {listing.status}
+                  </Text>
+                  {listing.isAssumable && (
+                    <Text color="green.500" fontSize="sm" fontWeight="bold">
+                      Assumable
+                    </Text>
+                  )}
+                </VStack>
+              </Box>
+            ))}
+          </SimpleGrid>
+        </GridItem>
+      </Grid>
+    </Box>
   )
 }

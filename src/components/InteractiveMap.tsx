@@ -277,7 +277,7 @@ export default function InteractiveMap({ listings, onPolygonChange }: Interactiv
         latitude: listings[0]?.latitude ?? 33.562417,
         zoom: 12
       }}
-      style={{ width: '100%', height: '800px' }}
+      style={{ width: '100%', height: '100%' }}
       mapStyle="mapbox://styles/mapbox/streets-v11"
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_API_SECRET_KEY}
       attributionControl={false}
