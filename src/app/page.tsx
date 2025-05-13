@@ -5,8 +5,8 @@ import { Button, Heading, VStack, Text, Image, Box, SimpleGrid } from "@chakra-u
 import dynamic from 'next/dynamic';
 import { Feature, Polygon, Geometry } from 'geojson';
 
-const MapWithMarkers = dynamic(
-  () => import('../components/MapWithMarkers'),
+const InteractiveMap = dynamic(
+  () => import('../components/InteractiveMap'),
   { ssr: false, loading: () => <p>Loading map…</p> }
 );
 
@@ -115,10 +115,19 @@ export default function Home() {
         </Button>
 
         {showMap && (
-          <MapWithMarkers 
+          <InteractiveMap
             markers={listings.map(listing => ({
+              id: listing.id,
               latitude: listing.latitude,
-              longitude: listing.longitude
+              longitude: listing.longitude,
+              address: listing.address,
+              price: listing.price,
+              bedrooms: listing.bedrooms,
+              bathrooms: listing.bathrooms,
+              squareFeet: listing.squareFeet,
+              propertyType: listing.propertyType,
+              status: listing.status,
+              photoUrls: listing.photoUrls
             }))} 
             onPolygonChange={handlePolygonChange}
           />
