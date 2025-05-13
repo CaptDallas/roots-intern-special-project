@@ -14,6 +14,7 @@ import { Listing } from '@/types/listing';
 interface InteractiveMapProps {
   listings: Listing[];
   onPolygonChange?: (polygon: Feature | null) => void;
+  onListingClick?: (listing: Listing) => void;
 }
 
 type HoveredPoint = {
@@ -239,7 +240,7 @@ function renderImageFallback(message: string) {
 }
 
 
-export default function InteractiveMap({ listings, onPolygonChange }: InteractiveMapProps) {
+export default function InteractiveMap({ listings, onPolygonChange, onListingClick }: InteractiveMapProps) {
   const mapRef = useRef<MapRef>(null);
   const { onMapLoad } = usePolygonDrawing(mapRef, onPolygonChange);
   const { geoJsonData, listingsMap } = useListingsData(listings);
@@ -269,6 +270,22 @@ export default function InteractiveMap({ listings, onPolygonChange }: Interactiv
     setHoveredPoint(null);
   };
 
+  const handleClick = (e: MapMouseEvent) => {
+    if (!e.features?.length || !onListingClick) return;
+    
+    const feature = e.features[0];
+    if (!feature.properties || feature.properties.point_count) return;
+    
+    // Get the original listing data using the id
+    const listingId = feature.properties.id;
+    if (!listingId) return;
+    
+    const clickedListing = listingsMap.get(listingId);
+    if (clickedListing) {
+      onListingClick(clickedListing);
+    }
+  };
+
   return (
     <ReactMapGL
       ref={mapRef}
@@ -285,6 +302,7 @@ export default function InteractiveMap({ listings, onPolygonChange }: Interactiv
       interactiveLayerIds={['unclustered-point']}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
     >
       {/* Map Data Source */}
       <Source

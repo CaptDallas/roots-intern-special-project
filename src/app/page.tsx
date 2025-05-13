@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Button, Heading, VStack, Text, Image, Box, SimpleGrid, Flex, Grid, GridItem } from "@chakra-ui/react"
+import { useState, useCallback, useMemo } from 'react'
+import { Button, Heading, VStack, Text, Image, Box, SimpleGrid, Flex, Grid, GridItem, Badge } from "@chakra-ui/react"
 import dynamic from 'next/dynamic';
 import { Feature, Polygon, Geometry } from 'geojson';
 import { Listing } from '@/types/listing';
@@ -13,6 +13,7 @@ const InteractiveMap = dynamic(
 
 export default function Home() {
   const [listings, setListings] = useState<Listing[]>([])
+  const [selectedListings, setSelectedListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showMap, setShowMap] = useState(true) // Default to showing the map
@@ -84,10 +85,23 @@ export default function Home() {
     setShowOnlyAssumable(!showOnlyAssumable);
   };
 
+  // Handle when a user clicks on a listing marker in the map
+  const handleListingClick = useCallback((listing: Listing) => {
+    // Check if the listing is already in the selected listings
+    if (!selectedListings.some(selected => selected.id === listing.id)) {
+      setSelectedListings(prev => [...prev, listing]);
+    }
+  }, [selectedListings]);
+
+  // Clear selected listings
+  const clearSelectedListings = useCallback(() => {
+    setSelectedListings([]);
+  }, []);
+
   // Filter listings based on the showOnlyAssumable state
   const filteredListings = showOnlyAssumable 
-    ? listings.filter(listing => listing.isAssumable)
-    : listings;
+    ? selectedListings.filter(listing => listing.isAssumable)
+    : selectedListings;
 
   return (
     <Box padding="0" maxWidth="1800px" margin="0 auto">
@@ -99,6 +113,7 @@ export default function Home() {
         bg="#CDFF64"
         color="black"
         boxShadow="md"
+        fontSize={{ base: "xl", md: "2xl", lg: "3xl" }}
       >
         Roots Home Explorer
       </Heading>
@@ -134,6 +149,15 @@ export default function Home() {
         >
           {showOnlyAssumable ? 'Show All Listings' : 'Show Only Assumable'}
         </Button>
+
+        {selectedListings.length > 0 && (
+          <Button
+            colorScheme="gray"
+            onClick={clearSelectedListings}
+          >
+            Clear Favorites ({selectedListings.length})
+          </Button>
+        )}
       </Flex>
 
       {error && (
@@ -146,23 +170,38 @@ export default function Home() {
           <GridItem position="sticky" top="0">
             <Box height={{ base: "500px", lg: "calc(100vh - 200px)" }} borderRadius="lg" overflow="hidden">
               <InteractiveMap
-                listings={filteredListings}
+                listings={listings}
                 onPolygonChange={handlePolygonChange}
+                onListingClick={handleListingClick}
               />
             </Box>
           </GridItem>
         )}
         {/* Listings Column */}
-        <GridItem overflow="auto" maxHeight={{ lg: "calc(100vh - 200px)" }}>
+        <GridItem overflow="auto" maxHeight={{ lg: "calc(100vh - 200px)" }} paddingRight={{ base: "0", md: "6" }}>
           <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
-            {filteredListings.map((listing) => (
+            {selectedListings.map((listing) => (
               <Box
                 key={listing.id}
-                borderWidth="1px"
+                borderWidth={selectedListings.some(selected => selected.id === listing.id) ? "2px" : "1px"}
                 borderRadius="lg"
                 overflow="hidden"
                 p={4}
+                position="relative"
+                borderColor={selectedListings.some(selected => selected.id === listing.id) ? "#CDFF64" : "inherit"}
               >
+                {listing.isAssumable && (
+                  <Badge 
+                    position="absolute" 
+                    top="2" 
+                    right="2" 
+                    bg="#CDFF64" 
+                    color="black"
+                    zIndex="1"
+                  >
+                    Assumable
+                  </Badge>
+                )}
                 {listing.photoUrls && listing.photoUrls[0] && (
                   <>
                     <Image
@@ -197,11 +236,6 @@ export default function Home() {
                   <Text color="blue.500" fontSize="sm">
                     {listing.status}
                   </Text>
-                  {listing.isAssumable && (
-                    <Text color="green.500" fontSize="sm" fontWeight="bold">
-                      Assumable
-                    </Text>
-                  )}
                 </VStack>
               </Box>
             ))}
