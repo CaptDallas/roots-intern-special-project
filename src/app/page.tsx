@@ -4,20 +4,13 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { Button, Heading, VStack, Text, Image, Box, SimpleGrid, Flex, Badge, HStack } from "@chakra-ui/react"
 import dynamic from 'next/dynamic';
 import { Feature, Polygon, Geometry } from 'geojson';
-import { Listing } from '@/types/listing';
+import { Listing } from '@/types';
 import { MAP_CONTAINER_STYLES } from './styles/mapContainer';
-import { BRAND_GREEN } from './styles/mapStyles';
+import { COLORS, SHADOWS } from './styles/theme';
+import { SearchResult } from '@/types';
 
 // Shadow style to be applied to all buttons
-const BUTTON_SHADOW = "0px 4px 10px rgba(0,0,0,0.2)";
-
-// Define a type for search results
-type SearchResult = {
-  id: string;
-  timestamp: Date;
-  polygons: Feature<Polygon>[];
-  listings: Listing[];
-};
+const BUTTON_SHADOW = SHADOWS.md;
 
 const InteractiveMap = dynamic(
   () => import('../components/InteractiveMap'),
@@ -39,7 +32,7 @@ export default function Home() {
   const [selectedListings, setSelectedListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [polygons, setPolygons] = useState<Feature<Polygon>[]>([])
+  const [drawingPolygons, setDrawingPolygons] = useState<Feature<Polygon>[]>([])
   const [showHistoricalPolygons, setShowHistoricalPolygons] = useState(false)
   const [showOnlyAssumable, setShowOnlyAssumable] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('listings')
@@ -71,6 +64,15 @@ export default function Home() {
     return searchHistory[activeSearchIndex]?.polygons || [];
   }, [searchHistory, activeSearchIndex, showHistoricalPolygons]);
 
+  // Filter search history for display
+  const visibleSearchResults = useMemo(() => {
+    if (searchHistory.length === 0) return [];
+    
+    // Always include all search history
+    // This ensures that all previous searches are displayed with appropriate colors
+    return [...searchHistory];
+  }, [searchHistory]);
+
   const fetchRecentListings = async () => {
     setLoading(true)
     setError(null)
@@ -100,7 +102,7 @@ export default function Home() {
   }
 
   const fetchPolygonListings = async () => {
-    if (polygons.length === 0) {
+    if (drawingPolygons.length === 0) {
       setError('Please draw a polygon on the map first')
       return
     }
@@ -113,7 +115,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(polygons)
+        body: JSON.stringify(drawingPolygons)
       })
       if (!response.ok) {
         const errorData = await response.json()
@@ -125,13 +127,24 @@ export default function Home() {
       const newSearch: SearchResult = {
         id: `polygon_${Date.now()}`,
         timestamp: new Date(),
-        polygons: [...polygons], // Create a copy of the polygons array
+        polygons: [...drawingPolygons], // Create a copy of the polygons array
         listings: data
       };
       
       // Add to search history
       setSearchHistory(prev => [newSearch, ...prev]);
       setActiveSearchIndex(0);
+      
+      // Clear drawing polygons and enable drawing mode for the next region
+      setDrawingPolygons([]);
+      
+      // Enable drawing mode after a short delay to ensure clean state
+      setTimeout(() => {
+        if (enableDrawingRef.current) {
+          enableDrawingRef.current();
+        }
+      }, 100);
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -154,11 +167,11 @@ export default function Home() {
 
   const handlePolygonChange = (polygon: Feature<Geometry> | null, action?: 'create' | 'delete' | 'clear') => {
     if (action === 'create' && polygon && polygon.geometry.type === 'Polygon') {
-      setPolygons(prev => [...prev, polygon as Feature<Polygon>]);
+      setDrawingPolygons(prev => [...prev, polygon as Feature<Polygon>]);
     } else if (action === 'delete' && polygon) {
-      setPolygons(prev => prev.filter(p => p.id !== polygon.id));
+      setDrawingPolygons(prev => prev.filter(p => p.id !== polygon.id));
     } else if (action === 'clear' || !action) {
-      setPolygons([]);
+      setDrawingPolygons([]);
     }
   }
 
@@ -223,8 +236,8 @@ export default function Home() {
           listings={listings}
           onPolygonChange={handlePolygonChange}
           onListingClick={handleListingClick}
-          polygons={polygons}
-          historicalPolygons={historicalPolygons}
+          searchResults={visibleSearchResults}
+          currentDrawing={drawingPolygons}
           onEnableDrawingRef={enableDrawingRef}
         />
       </Box>
@@ -243,7 +256,7 @@ export default function Home() {
       >
         <Box pointerEvents="auto">
           <Heading textShadow={BUTTON_SHADOW} as="h1" size="2xl">Roots Homes</Heading>
-          <Heading boxShadow={BUTTON_SHADOW} textAlign="center" bg="black" color={BRAND_GREEN} p={0} borderRadius="lg" as="h1" size="3xl">Explorer</Heading>
+          <Heading boxShadow={BUTTON_SHADOW} textAlign="center" bg="black" color={COLORS.brand.green} p={0} borderRadius="lg" as="h1" size="3xl">Explorer</Heading>
         </Box>
 
         <HStack gap={4}>
@@ -263,11 +276,14 @@ export default function Home() {
             pointerEvents="auto"
             colorScheme="green"
             variant="solid"
-            onClick={enableDrawing}
+            onClick={() => {
+              setDrawingPolygons([]);  // Clear existing polygons
+              enableDrawing();         // Enable drawing mode
+            }}
             boxShadow={BUTTON_SHADOW}
             _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
           >
-            Enable Drawing
+            New Region
           </Button>
           
           <Button
@@ -281,20 +297,35 @@ export default function Home() {
             {loading ? 'Fetching...' : 'Fetch Recent Listings'}
           </Button>
 
-          <Button
-            pointerEvents="auto"
-            colorScheme="green"
-            onClick={() => {
-              fetchPolygonListings();
-              setPolygons([]);
-            }}
-            disabled={polygons.length === 0}
-            loading={loading}
-            boxShadow={BUTTON_SHADOW}
-            _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
-          >
-            {loading ? 'Searching...' : 'Search Region'}
-          </Button>
+          {drawingPolygons.length > 0 && (
+            <>
+              <Button
+                pointerEvents="auto"
+                colorScheme="green"
+                onClick={() => {
+                  fetchPolygonListings();
+                }}
+                loading={loading}
+                boxShadow={BUTTON_SHADOW}
+                _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
+              >
+                {loading ? 'Searching...' : 'Search Region'}
+              </Button>
+              
+              <Button
+                pointerEvents="auto"
+                colorScheme="red"
+                variant="outline"
+                onClick={() => {
+                  setDrawingPolygons([]);
+                }}
+                boxShadow={BUTTON_SHADOW}
+                _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
+              >
+                Clear
+              </Button>
+            </>
+          )}
 
           {selectedListings.length > 0 && (
             <Button
@@ -357,14 +388,14 @@ export default function Home() {
                   overflow="hidden"
                   p={4}
                   position="relative"
-                  borderColor={selectedListings.some(selected => selected.id === listing.id) ? BRAND_GREEN : "inherit"}
+                  borderColor={selectedListings.some(selected => selected.id === listing.id) ? COLORS.brand.green : "inherit"}
                 >
                   {listing.isAssumable && (
                     <Badge 
                       position="absolute" 
                       top="2" 
                       right="2" 
-                      bg={BRAND_GREEN} 
+                      bg={COLORS.brand.green} 
                       color="black"
                       zIndex="1"
                     >
@@ -410,7 +441,6 @@ export default function Home() {
           </VStack>
         ) : (
           <Dashboard 
-            listings={listings}
             searchHistory={searchHistory}
             activeSearchIndex={activeSearchIndex}
             onNextSearch={switchToNextSearch}

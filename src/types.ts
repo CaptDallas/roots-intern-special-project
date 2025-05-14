@@ -1,4 +1,6 @@
 // Type definition for listing data returned from the API
+import { Feature, Polygon } from 'geojson';
+
 export interface Listing {
   id: string;
   address: string;
@@ -17,3 +19,10 @@ export interface Listing {
   isAssumable: boolean;
   denormalizedAssumableInterestRate: number;
 } 
+
+export interface SearchResult {
+  id: string;
+  timestamp: Date;
+  polygons: Feature<Polygon>[];
+  listings: Listing[];
+}

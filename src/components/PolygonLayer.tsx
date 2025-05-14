@@ -2,114 +2,170 @@ import React, { useMemo } from 'react';
 import { Source, Layer } from 'react-map-gl/mapbox';
 import type { Feature, Polygon, FeatureCollection } from 'geojson';
 import type { FillLayerSpecification, LineLayerSpecification } from 'react-map-gl/mapbox';
+import { COLORS } from '@/app/styles/theme';
+import { SearchResult } from '@/types';
 
-// Define polygon styling options
-type PolygonStyle = {
-  fillColor: string;
-  fillOpacity: number;
-  outlineColor: string;
-  outlineWidth: number;
-};
-
-const DEFAULT_STYLE: PolygonStyle = {
-  fillColor: '#CDFF64',
+// Define base polygon style
+const BASE_STYLE = {
   fillOpacity: 0.2,
-  outlineColor: '#7b9334',
   outlineWidth: 2
 };
 
-const HISTORICAL_STYLE: PolygonStyle = {
-  fillColor: '#64A1FF',
-  fillOpacity: 0.15,
-  outlineColor: '#3471B3',
-  outlineWidth: 1.5
+// Style for currently drawn (unsearched) polygons - uses same color as assigned but enhanced
+const CURRENT_DRAWING_STYLE = {
+  fillOpacity: 0.4,       // Higher opacity for better visibility
+  outlineWidth: 3.5,      // Thicker outline
+  outlineDasharray: [1, 1] // Dashed outline to indicate it's being drawn
 };
 
+// The region color keys in order of assignment
+const REGION_COLOR_KEYS = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta'];
+
 interface PolygonLayerProps {
-  polygons: Feature<Polygon>[];
-  historicalPolygons?: Feature<Polygon>[];
-  onPolygonClick?: (polygon: Feature<Polygon>, isHistorical: boolean) => void;
-  label?: string;
+  currentDrawing?: Feature<Polygon>[];
+  searchResults: SearchResult[];
+  onPolygonClick?: (polygon: Feature<Polygon>, searchResultIndex: number) => void;
 }
 
 export default function PolygonLayer({ 
-  polygons, 
-  historicalPolygons = [], 
-  onPolygonClick,
-  label
+  currentDrawing = [],
+  searchResults = [], 
+  onPolygonClick
 }: PolygonLayerProps) {
-  // Add a property to identify polygon type (active vs historical)
+  // Process all polygons with their search index and assign colors
   const processedPolygons = useMemo(() => {
-    return polygons.map(polygon => ({
-      ...polygon,
-      properties: {
-        ...polygon.properties,
-        polygonType: 'active'
-      }
+    let allPolygons: Array<{
+      polygon: Feature<Polygon>;
+      searchIndex: number;
+      colorKey: string;
+      isCurrentDrawing: boolean;
+    }> = [];
+    
+    // Reverse the search results to assign colors correctly (oldest -> alpha, newer -> beta, gamma, etc.)
+    // Since searchResults is already newest first, we need to reverse it for color assignment
+    const reversedResults = [...searchResults].reverse();
+    
+    // Calculate what color the next region should be (to be used for current drawing)
+    // This is based on how many existing searches we have
+    const nextColorIndex = Math.min(reversedResults.length, REGION_COLOR_KEYS.length - 1);
+    const nextColorKey = REGION_COLOR_KEYS[nextColorIndex];
+    
+    // Add current drawing polygons first - use the next color in sequence
+    const currentDrawingPolygons = currentDrawing.map(polygon => ({
+      polygon: {
+        ...polygon,
+        properties: {
+          ...polygon.properties,
+          isCurrentDrawing: true,
+          colorKey: nextColorKey  // Use the next color based on existing search count
+        }
+      },
+      searchIndex: -1,  // Special index for current drawing
+      colorKey: nextColorKey,
+      isCurrentDrawing: true
     }));
-  }, [polygons]);
-
-  const processedHistoricalPolygons = useMemo(() => {
-    return historicalPolygons.map(polygon => ({
-      ...polygon,
-      properties: {
-        ...polygon.properties,
-        polygonType: 'historical'
-      }
-    }));
-  }, [historicalPolygons]);
-
-  // Combine both active and historical polygons
-  const allPolygons = useMemo(() => {
-    return [...processedPolygons, ...processedHistoricalPolygons];
-  }, [processedPolygons, processedHistoricalPolygons]);
-
-  // Convert the polygons array to a GeoJSON feature collection
+    
+    allPolygons = [...currentDrawingPolygons];
+    
+    // Process each search result's polygons - oldest gets alpha
+    reversedResults.forEach((result, index) => {
+      if (!result.polygons || result.polygons.length === 0) return;
+      
+      // Calculate color index - oldest gets alpha (index 0)
+      const colorIndex = Math.min(index, REGION_COLOR_KEYS.length - 1);
+      const colorKey = REGION_COLOR_KEYS[colorIndex];
+      
+      const searchPolygons = result.polygons.map(polygon => ({
+        polygon: {
+          ...polygon,
+          properties: {
+            ...polygon.properties,
+            searchIndex: searchResults.length - 1 - index, // Restore original index for later reference
+            colorKey: colorKey,
+            isCurrentDrawing: false
+          }
+        },
+        searchIndex: searchResults.length - 1 - index,
+        colorKey: colorKey,
+        isCurrentDrawing: false
+      }));
+      
+      allPolygons = [...allPolygons, ...searchPolygons];
+    });
+    
+    return allPolygons;
+  }, [searchResults, currentDrawing]);
+  
+  // Convert to GeoJSON feature collection
   const polygonData = useMemo((): FeatureCollection<Polygon> => {
     return {
       type: 'FeatureCollection',
-      features: allPolygons
+      features: processedPolygons.map(item => item.polygon)
     };
-  }, [allPolygons]);
+  }, [processedPolygons]);
 
-  // Define the polygon fill layer with conditional styling
+  // Define the polygon fill layer with dynamic coloring based on color key
   const polygonFillLayer: FillLayerSpecification = {
     id: 'polygon-fill',
     type: 'fill',
     source: 'polygon-source',
     paint: {
+      // Use the colorKey property to determine the fill color
       'fill-color': [
         'match',
-        ['get', 'polygonType'],
-        'historical', HISTORICAL_STYLE.fillColor,
-        DEFAULT_STYLE.fillColor
+        ['get', 'colorKey'],
+        'alpha', COLORS.region.alpha.main,
+        'beta', COLORS.region.beta.main,
+        'gamma', COLORS.region.gamma.main,
+        'delta', COLORS.region.delta.main,
+        'epsilon', COLORS.region.epsilon.main,
+        'zeta', COLORS.region.zeta.main,
+        'eta', COLORS.region.eta.main,
+        'theta', COLORS.region.theta.main,
+        // Default to brand color if no match
+        COLORS.brand.green
       ],
+      // Use higher opacity for current drawing
       'fill-opacity': [
-        'match',
-        ['get', 'polygonType'],
-        'historical', HISTORICAL_STYLE.fillOpacity,
-        DEFAULT_STYLE.fillOpacity
+        'case',
+        ['==', ['get', 'isCurrentDrawing'], true], CURRENT_DRAWING_STYLE.fillOpacity,
+        BASE_STYLE.fillOpacity
       ]
     }
   };
 
-  // Define the polygon outline layer with conditional styling
+  // Define the polygon outline layer
   const polygonOutlineLayer: LineLayerSpecification = {
     id: 'polygon-outline',
     type: 'line',
     source: 'polygon-source',
     paint: {
+      // Use the colorKey property to determine the outline color (darker version)
       'line-color': [
         'match',
-        ['get', 'polygonType'],
-        'historical', HISTORICAL_STYLE.outlineColor,
-        DEFAULT_STYLE.outlineColor
+        ['get', 'colorKey'],
+        'alpha', COLORS.region.alpha.dark,
+        'beta', COLORS.region.beta.dark,
+        'gamma', COLORS.region.gamma.dark,
+        'delta', COLORS.region.delta.dark,
+        'epsilon', COLORS.region.epsilon.dark,
+        'zeta', COLORS.region.zeta.dark,
+        'eta', COLORS.region.eta.dark,
+        'theta', COLORS.region.theta.dark,
+        // Default to brand color if no match
+        COLORS.brand.greenDark
       ],
+      // Use thicker outline for current drawing
       'line-width': [
-        'match',
-        ['get', 'polygonType'],
-        'historical', HISTORICAL_STYLE.outlineWidth,
-        DEFAULT_STYLE.outlineWidth
+        'case',
+        ['==', ['get', 'isCurrentDrawing'], true], CURRENT_DRAWING_STYLE.outlineWidth,
+        BASE_STYLE.outlineWidth
+      ],
+      // Use dashed line for current drawing
+      'line-dasharray': [
+        'case',
+        ['==', ['get', 'isCurrentDrawing'], true], CURRENT_DRAWING_STYLE.outlineDasharray,
+        ['literal', [1]]
       ]
     }
   };
@@ -118,13 +174,13 @@ export default function PolygonLayer({
   const handleClick = (e: any) => {
     if (onPolygonClick && e.features && e.features.length > 0) {
       const feature = e.features[0];
-      const isHistorical = feature.properties?.polygonType === 'historical';
-      onPolygonClick(feature, isHistorical);
+      const searchIndex = feature.properties?.searchIndex ?? 0;
+      onPolygonClick(feature, searchIndex);
     }
   };
 
   // If there are no polygons, don't render anything
-  if (allPolygons.length === 0) return null;
+  if (processedPolygons.length === 0) return null;
 
   return (
     <Source id="polygon-source" type="geojson" data={polygonData}>

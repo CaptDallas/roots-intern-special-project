@@ -1,11 +1,5 @@
 import type { LayerSpecification } from 'react-map-gl/mapbox';
-
-export const BRAND_GREEN = '#CDFF64';
-export const BRAND_GREEN_DARK = '#7b9334';
-export const BRAND_GREEN_MEDIUM = '#b3df4a';
-export const BRAND_GREEN_LIGHT = '#e4ffab';
-export const BRAND_PURPLE = '#BE5EE0'; // complementary color
-export const BRAND_GOLD = '#E0CD5E'; // split complementary color
+import { COLORS, MAP_CONFIG } from './theme';
 
 export const MAP_LAYERS = {
   clusterLayer: {
@@ -15,9 +9,9 @@ export const MAP_LAYERS = {
     filter: ['has', 'point_count'],
     paint: {
       'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 25, 25],
-      'circle-color': ['step', ['get', 'point_count'], BRAND_GREEN, 10, BRAND_GREEN_MEDIUM, 25, BRAND_GREEN_DARK],
+      'circle-color': ['step', ['get', 'point_count'], COLORS.brand.green, 10, COLORS.brand.greenMedium, 25, COLORS.brand.greenDark],
       'circle-stroke-width': 2,
-      'circle-stroke-color': BRAND_GREEN_DARK
+      'circle-stroke-color': COLORS.brand.greenDark
     }
   } as LayerSpecification,
 
@@ -43,9 +37,9 @@ export const MAP_LAYERS = {
     filter: ['!', ['has', 'point_count']],
     paint: {
       'circle-radius': 8,
-      'circle-color': BRAND_GREEN,
+      'circle-color': COLORS.brand.green,
       'circle-stroke-width': 1.5,
-      'circle-stroke-color': BRAND_GREEN_DARK
+      'circle-stroke-color': COLORS.brand.greenDark
     }
   } as LayerSpecification,
 
@@ -56,9 +50,9 @@ export const MAP_LAYERS = {
     filter: ['==', 'id', ''],
     paint: {
       'circle-radius': 10,
-      'circle-color': BRAND_GREEN,
+      'circle-color': COLORS.brand.green,
       'circle-stroke-width': 2,
-      'circle-stroke-color': BRAND_GREEN_DARK
+      'circle-stroke-color': COLORS.brand.greenDark
     }
   } as LayerSpecification
 };
@@ -69,7 +63,7 @@ export const DRAW_STYLES = [
     type: 'line',
     filter: ['all', ['==', '$type', 'LineString'], ['!=', 'mode', 'static']],
     paint: {
-      'line-color': BRAND_GREEN,
+      'line-color': COLORS.brand.green,
       'line-width': 2
     }
   },
@@ -78,8 +72,8 @@ export const DRAW_STYLES = [
     type: 'fill',
     filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
     paint: {
-      'fill-color': BRAND_GREEN,
-      'fill-outline-color': BRAND_GREEN,
+      'fill-color': COLORS.brand.green,
+      'fill-outline-color': COLORS.brand.green,
       'fill-opacity': 0.1
     }
   },
@@ -88,7 +82,7 @@ export const DRAW_STYLES = [
     type: 'line',
     filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
     paint: {
-      'line-color': BRAND_GREEN,
+      'line-color': COLORS.brand.green,
       'line-width': 2
     }
   },
@@ -99,15 +93,11 @@ export const DRAW_STYLES = [
     paint: {
       'circle-radius': 5,
       'circle-color': '#fff',
-      'circle-stroke-color': BRAND_GREEN,
+      'circle-stroke-color': COLORS.brand.green,
       'circle-stroke-width': 2
     }
   }
 ];
 
-export const MAP_CONFIG = {
-  mapStyle: "mapbox://styles/mapbox/light-v11",
-  initialZoom: 12,
-  defaultLatitude: 33.562417,
-  defaultLongitude: -112.424063
-}; 
+// Re-export MAP_CONFIG from theme to maintain backwards compatibility
+export { MAP_CONFIG } from './theme'; 

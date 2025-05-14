@@ -13,20 +13,10 @@ import {
   Button,
   HStack,
 } from "@chakra-ui/react";
-import { Listing } from '@/types/listing';
-import { Feature, Polygon } from 'geojson';
-const BRAND_GREEN = '#CDFF64';
-
-// Define search result type
-type SearchResult = {
-  id: string;
-  timestamp: Date;
-  polygons: Feature<Polygon>[];
-  listings: Listing[];
-};
+import { COLORS } from '@/app/styles/theme';
+import { SearchResult } from '@/types';
 
 interface DashboardProps {
-  listings: Listing[];
   searchHistory: SearchResult[];
   activeSearchIndex: number;
   onNextSearch: () => void;
@@ -40,7 +30,7 @@ const StatCard = ({ title, value, subtitle, ...props }: {
   value: string | number;
   subtitle: string;
 } & BoxProps) => (
-  <Box p={4} bg={BRAND_GREEN} borderRadius="lg" boxShadow="sm" {...props}>
+  <Box p={4} bg={COLORS.brand.green} borderRadius="lg" boxShadow="sm" {...props}>
     <Flex justifyContent="space-between">
       <Box>
         <Text fontSize="sm" color="gray.500">{title}</Text>
@@ -52,7 +42,6 @@ const StatCard = ({ title, value, subtitle, ...props }: {
 );
 
 export default function Dashboard({ 
-  listings, 
   searchHistory, 
   activeSearchIndex, 
   onNextSearch, 
@@ -60,6 +49,10 @@ export default function Dashboard({
   showHistoricalPolygons = false,
   onToggleHistoricalPolygons
 }: DashboardProps) {
+  // Get the active search and its listings
+  const activeSearch = searchHistory[activeSearchIndex];
+  const listings = activeSearch?.listings || [];
+  
   // Calculate dashboard metrics
   const assumableListings = listings.filter(listing => listing.isAssumable);
   const avgPrice = listings.length 
@@ -93,14 +86,13 @@ export default function Dashboard({
   })();
     
   // Get property types distribution
-  const propertyTypes = listings.reduce((acc, listing) => {
+  const propertyTypes: Record<string, number> = listings.reduce((acc, listing) => {
     const type = listing.propertyType || 'Unknown';
     acc[type] = (acc[type] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
   
   // Get active search information
-  const activeSearch = searchHistory[activeSearchIndex];
   const hasMultipleSearches = searchHistory.length > 1;
   
   return (

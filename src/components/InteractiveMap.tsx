@@ -7,7 +7,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import type { FeatureCollection, Point as GeoJSONPoint, Feature, Polygon } from 'geojson';
 import type { MapMouseEvent } from 'mapbox-gl';
-import { Listing } from '@/types/listing';
+import { Listing, SearchResult } from '@/types';
 import { ListingPopup } from './ListingPopup';
 import { MAP_LAYERS, DRAW_STYLES, MAP_CONFIG } from '../app/styles/mapStyles';
 import PolygonLayer from './PolygonLayer';
@@ -16,8 +16,8 @@ interface InteractiveMapProps {
   listings: Listing[];
   onPolygonChange?: (polygon: Feature | null, action?: 'create' | 'delete' | 'clear') => void;
   onListingClick?: (listing: Listing) => void;
-  polygons?: Feature<Polygon>[];
-  historicalPolygons?: Feature<Polygon>[];
+  searchResults: SearchResult[];
+  currentDrawing?: Feature<Polygon>[];
 }
 
 type HoveredPoint = {
@@ -150,14 +150,39 @@ export default function InteractiveMap({
   listings, 
   onPolygonChange, 
   onListingClick,
-  polygons = [],
-  historicalPolygons = [],
+  searchResults = [],
+  currentDrawing = [],
   onEnableDrawingRef
 }: InteractiveMapProps & { 
   onEnableDrawingRef?: React.MutableRefObject<(() => boolean) | null> 
 }) {
   const mapRef = useRef<MapRef>(null);
-  const { onMapLoad, clearAllDrawings, enableDrawingMode } = usePolygonDrawing(mapRef, onPolygonChange);
+  
+  // Extract current polygons from the first search result (newest)
+  const currentPolygons = useMemo(() => {
+    if (searchResults.length === 0) return [];
+    return searchResults[0]?.polygons || [];
+  }, [searchResults]);
+  
+  // Track whether user has triggered explicit polygon clearing
+  const [userClearedPolygons, setUserClearedPolygons] = useState(false);
+  
+  // Create a wrapped version of onPolygonChange that tracks user clear actions
+  const handlePolygonChange = useCallback((polygon: Feature | null, action?: 'create' | 'delete' | 'clear') => {
+    if (action === 'clear') {
+      setUserClearedPolygons(true);
+      
+      // Reset the flag after a short delay to allow future drawings
+      setTimeout(() => {
+        setUserClearedPolygons(false);
+      }, 100);
+    }
+    
+    // Pass through to the original handler
+    onPolygonChange?.(polygon, action);
+  }, [onPolygonChange]);
+  
+  const { onMapLoad, clearAllDrawings, enableDrawingMode } = usePolygonDrawing(mapRef, handlePolygonChange);
   const { geoJsonData, listingsMap } = useListingsData(listings);
   const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint>(null);
   const [hoveredId, setHoveredId] = useState<string>('');
@@ -174,12 +199,15 @@ export default function InteractiveMap({
     };
   }, [enableDrawingMode, onEnableDrawingRef]);
 
-  // Add effect to handle polygon clearing request from parent
+  // Add effect to handle polygon clearing request from parent - only clear drawings when both
+  // currentPolygons and currentDrawing are empty to prevent unwanted clearing during searches
   useEffect(() => {
-    if (polygons.length === 0) {
+    // Only clear the mapbox draw if user has explicitly requested clearing
+    // OR if we're in a completely fresh state with no polygons at all
+    if ((currentPolygons.length === 0 && currentDrawing.length === 0) || userClearedPolygons) {
       clearAllDrawings();
     }
-  }, [polygons.length, clearAllDrawings]);
+  }, [currentPolygons.length, currentDrawing.length, clearAllDrawings, userClearedPolygons]);
 
   const handleMouseEnter = (e: MapMouseEvent) => {
     if (!e.features?.length) return;
@@ -256,10 +284,10 @@ export default function InteractiveMap({
       onClick={handleClick}
     >
       
-      {/* Polygon Layer - displays saved polygons */}
+      {/* Polygon Layer - displays search result polygons */}
       <PolygonLayer 
-        polygons={polygons} 
-        historicalPolygons={historicalPolygons} 
+        searchResults={searchResults}
+        currentDrawing={currentDrawing}
       />
       
       {/* Map Data Source */}
