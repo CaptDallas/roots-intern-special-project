@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
-import ReactMapGL, { Source, Layer, MapRef, Popup } from 'react-map-gl/mapbox';
+import ReactMapGL, { Source, Layer, MapRef, Popup, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import type { FeatureCollection, Point as GeoJSONPoint, Feature } from 'geojson';
@@ -10,6 +10,7 @@ import type { LayerSpecification, SourceSpecification } from 'react-map-gl/mapbo
 import { Box, Text, VStack, Image, Skeleton } from '@chakra-ui/react';
 import type { MapMouseEvent } from 'mapbox-gl';
 import { Listing } from '@/types/listing';
+import { ListingPopup } from './ListingPopup';
 
 interface InteractiveMapProps {
   listings: Listing[];
@@ -33,7 +34,9 @@ const MAP_LAYERS = {
     filter: ['has', 'point_count'],
     paint: {
       'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 25, 25],
-      'circle-color': ['step', ['get', 'point_count'], 'grey', 10, 'grey', 25, 'grey']
+      'circle-color': ['step', ['get', 'point_count'], '#CDFF64', 10, '#b3df4a', 25, '#8FBC2B'],
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#7b9334'
     }
   } as LayerSpecification,
 
@@ -44,7 +47,11 @@ const MAP_LAYERS = {
     filter: ['has', 'point_count'],
     layout: {
       'text-field': '{point_count_abbreviated}',
-      'text-size': 12
+      'text-size': 14,
+      'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold']
+    },
+    paint: {
+      'text-color': '#000000'
     }
   } as LayerSpecification,
 
@@ -54,8 +61,23 @@ const MAP_LAYERS = {
     source: 'points',
     filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-radius': 6,
-      'circle-color': 'grey'
+      'circle-radius': 8,
+      'circle-color': '#CDFF64',
+      'circle-stroke-width': 1.5,
+      'circle-stroke-color': '#7b9334'
+    }
+  } as LayerSpecification,
+
+  highlightedPointLayer: {
+    id: 'highlighted-point',
+    type: 'circle',
+    source: 'points',
+    filter: ['==', 'id', ''],
+    paint: {
+      'circle-radius': 10,
+      'circle-color': '#CDFF64',
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#7b9334'
     }
   } as LayerSpecification
 };
@@ -80,9 +102,60 @@ function usePolygonDrawing(
 
     drawRef.current = new MapboxDraw({
       displayControlsDefault: false,
-      controls: { polygon: true, trash: true }
+      controls: { 
+        polygon: true, 
+        trash: true,
+        combine_features: false,
+        uncombine_features: false
+      },
+      defaultMode: 'draw_polygon',
+      styles: [
+        // Set the line style
+        {
+          id: 'gl-draw-line',
+          type: 'line',
+          filter: ['all', ['==', '$type', 'LineString'], ['!=', 'mode', 'static']],
+          paint: {
+            'line-color': '#CDFF64',
+            'line-width': 2
+          }
+        },
+        // Styling for the fill area
+        {
+          id: 'gl-draw-polygon-fill',
+          type: 'fill',
+          filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
+          paint: {
+            'fill-color': '#CDFF64',
+            'fill-outline-color': '#CDFF64',
+            'fill-opacity': 0.1
+          }
+        },
+        // Styling for polygon outline
+        {
+          id: 'gl-draw-polygon-stroke-active',
+          type: 'line',
+          filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
+          paint: {
+            'line-color': '#CDFF64',
+            'line-width': 2
+          }
+        },
+        // Styling for vertices
+        {
+          id: 'gl-draw-point-point-stroke-active',
+          type: 'circle',
+          filter: ['all', ['==', '$type', 'Point'], ['==', 'meta', 'vertex']],
+          paint: {
+            'circle-radius': 5,
+            'circle-color': '#fff',
+            'circle-stroke-color': '#CDFF64',
+            'circle-stroke-width': 2
+          }
+        }
+      ]
     });
-    map.addControl(drawRef.current, 'top-left');
+    map.addControl(drawRef.current, 'top-right');
 
     map.on('draw.create', updatePolygon);
     map.on('draw.update', updatePolygon);
@@ -130,67 +203,6 @@ function useListingsData(listings: Listing[]) {
   }, [listings]);
 
   return { geoJsonData, listingsMap };
-}
-
-// ListingPopup component
-function ListingPopup({ 
-  point, 
-  onClose 
-}: { 
-  point: HoveredPoint, 
-  onClose: () => void 
-}) {
-  const [imageError, setImageError] = useState(false);
-  const listing = point?.originalListing;
-
-  if (!point) return null;
-
-  return (
-    <Popup
-      longitude={point.longitude}
-      latitude={point.latitude}
-      closeButton={false}
-      closeOnClick={false}
-      anchor="bottom"
-      offset={[0, -10]}
-      onClose={onClose}
-    >
-      <Box p={2} maxW="300px">
-        {/* Image Section */}
-        {renderListingImage(listing, imageError, setImageError)}
-        
-        {/* Details Section */}
-        <VStack align="start" gap={1}>
-          <Text fontWeight="bold" fontSize="lg">
-            ${listing?.price?.toLocaleString() || point.properties.price?.toLocaleString()}
-          </Text>
-          {(listing?.address || point.properties.address) && (
-            <Text>{listing?.address || point.properties.address}</Text>
-          )}
-          <Text>
-            {listing?.bedrooms && `${listing.bedrooms} beds`}
-            {listing?.bathrooms && ` • ${listing.bathrooms} baths`}
-            {listing?.squareFeet && ` • ${listing.squareFeet} sqft`}
-          </Text>
-          {(listing?.propertyType || point.properties.propertyType) && (
-            <Text color="gray.500" fontSize="sm">
-              {listing?.propertyType || point.properties.propertyType}
-            </Text>
-          )}
-          {(listing?.status || point.properties.status) && (
-            <Text color="blue.500" fontSize="sm">
-              {listing?.status || point.properties.status}
-            </Text>
-          )}
-          {(listing?.isAssumable || point.properties.isAssumable) && (
-            <Text color="green.500" fontSize="sm" fontWeight="bold">
-              Assumable
-            </Text>
-          )}
-        </VStack>
-      </Box>
-    </Popup>
-  );
 }
 
 // Helper function for rendering listing image
@@ -245,6 +257,7 @@ export default function InteractiveMap({ listings, onPolygonChange, onListingCli
   const { onMapLoad } = usePolygonDrawing(mapRef, onPolygonChange);
   const { geoJsonData, listingsMap } = useListingsData(listings);
   const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint>(null);
+  const [hoveredId, setHoveredId] = useState<string>('');
 
   const handleMouseEnter = (e: MapMouseEvent) => {
     if (!e.features?.length) return;
@@ -258,6 +271,15 @@ export default function InteractiveMap({ listings, onPolygonChange, onListingCli
     // Get the original listing data using the id
     const originalListing = listingsMap.get(feature.properties.id);
     
+    // Update highlighted point filter
+    setHoveredId(feature.properties.id);
+    
+    // Update filter on the map
+    if (mapRef.current) {
+      const map = mapRef.current.getMap();
+      map.setFilter('highlighted-point', ['==', 'id', feature.properties.id]);
+    }
+    
     setHoveredPoint({
       longitude: coordinates[0],
       latitude: coordinates[1],
@@ -268,6 +290,13 @@ export default function InteractiveMap({ listings, onPolygonChange, onListingCli
 
   const handleMouseLeave = () => {
     setHoveredPoint(null);
+    setHoveredId('');
+    
+    // Reset filter on the map
+    if (mapRef.current) {
+      const map = mapRef.current.getMap();
+      map.setFilter('highlighted-point', ['==', 'id', '']);
+    }
   };
 
   const handleClick = (e: MapMouseEvent) => {
@@ -295,7 +324,7 @@ export default function InteractiveMap({ listings, onPolygonChange, onListingCli
         zoom: 12
       }}
       style={{ width: '100%', height: '100%' }}
-      mapStyle="mapbox://styles/mapbox/streets-v11"
+      mapStyle="mapbox://styles/mapbox/light-v11"
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_API_SECRET_KEY}
       attributionControl={false}
       onLoad={onMapLoad}
@@ -304,6 +333,7 @@ export default function InteractiveMap({ listings, onPolygonChange, onListingCli
       onMouseLeave={handleMouseLeave}
       onClick={handleClick}
     >
+      <NavigationControl position="top-right" showCompass={true} />
       {/* Map Data Source */}
       <Source
         id="points"
@@ -316,6 +346,7 @@ export default function InteractiveMap({ listings, onPolygonChange, onListingCli
         <Layer {...MAP_LAYERS.clusterLayer} />
         <Layer {...MAP_LAYERS.clusterCountLayer} />
         <Layer {...MAP_LAYERS.unclusteredPointLayer} />
+        <Layer {...MAP_LAYERS.highlightedPointLayer} />
       </Source>
 
       {/* Popup for hovered point */}
