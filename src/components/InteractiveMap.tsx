@@ -11,7 +11,7 @@ import { Box, Text, VStack, Image, Skeleton } from '@chakra-ui/react';
 import type { MapMouseEvent } from 'mapbox-gl';
 import { Listing } from '@/types/listing';
 import { ListingPopup } from './ListingPopup';
-import { MAP_LAYERS, DRAW_STYLES, MAP_CONFIG } from './mapStyles';
+import { MAP_LAYERS, DRAW_STYLES, MAP_CONFIG } from '../app/styles/mapStyles';
 
 interface InteractiveMapProps {
   listings: Listing[];
