@@ -6,8 +6,6 @@ import ReactMapGL, { Source, Layer, MapRef, Popup, NavigationControl } from 'rea
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import type { FeatureCollection, Point as GeoJSONPoint, Feature } from 'geojson';
-import type { SourceSpecification } from 'react-map-gl/mapbox';
-import { Box, Text, VStack, Image, Skeleton } from '@chakra-ui/react';
 import type { MapMouseEvent } from 'mapbox-gl';
 import { Listing } from '@/types/listing';
 import { ListingPopup } from './ListingPopup';
@@ -103,51 +101,6 @@ function useListingsData(listings: Listing[]) {
   return { geoJsonData, listingsMap };
 }
 
-// Helper function for rendering listing image
-function renderListingImage(
-  listing?: Listing, 
-  imageError: boolean = false, 
-  setImageError?: (error: boolean) => void
-) {
-  if (listing?.photoUrls && Array.isArray(listing.photoUrls) && listing.photoUrls.length > 0) {
-    if (!imageError) {
-      return (
-        <Image
-          src={listing.photoUrls[0]}
-          alt={listing.address || 'Property'}
-          height="150px"
-          width="100%"
-          objectFit="cover"
-          borderRadius="md"
-          mb={2}
-          onError={() => setImageError?.(true)}
-        />
-      );
-    } else {
-      return renderImageFallback("Image Failed to Load");
-    }
-  } else {
-    return renderImageFallback("No Image Available");
-  }
-}
-
-// Helper function for rendering image fallbacks
-function renderImageFallback(message: string) {
-  return (
-    <Box 
-      height="150px" 
-      width="100%" 
-      bg="gray.200" 
-      display="flex" 
-      alignItems="center" 
-      justifyContent="center" 
-      borderRadius="md" 
-      mb={2}
-    >
-      <Text color="gray.500">{message}</Text>
-    </Box>
-  );
-}
 
 export default function InteractiveMap({ listings, onPolygonChange, onListingClick }: InteractiveMapProps) {
   const mapRef = useRef<MapRef>(null);
@@ -238,7 +191,7 @@ export default function InteractiveMap({ listings, onPolygonChange, onListingCli
         data={geoJsonData}
         cluster={true}
         clusterMaxZoom={14}
-        clusterRadius={50}
+        clusterRadius={30}
       >
         <Layer {...MAP_LAYERS.clusterLayer} />
         <Layer {...MAP_LAYERS.clusterCountLayer} />

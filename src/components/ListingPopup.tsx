@@ -20,7 +20,7 @@ interface ListingPopupProps {
 function renderImageFallback(message: string) {
   return (
     <Box 
-      height="150px" 
+      height="120px" 
       width="100%"
       bg="gray.200" 
       display="flex" 
@@ -32,7 +32,7 @@ function renderImageFallback(message: string) {
       padding="0"
       border="none"
     >
-      <Text color="gray.500">{message}</Text>
+      <Text color="gray.500" fontSize="xs">{message}</Text>
     </Box>
   );
 }
@@ -47,7 +47,7 @@ function renderListingImage(
       return (
         <Box 
           width="100%" 
-          height="140px" 
+          height="120px" 
           padding="0" 
           margin="0"
           overflow="hidden"
@@ -90,36 +90,51 @@ export function ListingPopup({ point, onClose }: ListingPopupProps) {
       anchor="bottom"
       offset={[0, -10]}
       onClose={onClose}
+      style={{
+        borderRadius: '8px',
+        overflow: 'hidden',
+        padding: 0,
+        margin: 0,
+        border: 'none'
+      }}
     >
-      <Box p={0} maxW="300px">
+      <Box p={0} maxW="240px" borderRadius="md" border="none">
         {/* Image Section */}
         {renderListingImage(listing, imageError, setImageError)}
         
         {/* Details Section */}
-        <VStack align="start" gap={1} paddingTop={2}>
-          <Text fontWeight="bold" fontSize="lg">
+        <VStack align="start" gap={1} p={2} pt={1.5}>
+          <Text fontWeight="bold" fontSize="md">
             ${listing?.price?.toLocaleString() || point.properties.price?.toLocaleString()}
           </Text>
           {(listing?.address || point.properties.address) && (
-            <Text>{listing?.address || point.properties.address}</Text>
+            <Text 
+              fontSize="sm" 
+              maxWidth="100%"
+              overflow="hidden"
+              textOverflow="ellipsis"
+              whiteSpace="nowrap"
+            >
+              {listing?.address || point.properties.address}
+            </Text>
           )}
-          <Text>
+          <Text fontSize="xs">
             {listing?.bedrooms && `${listing.bedrooms} beds`}
             {listing?.bathrooms && ` • ${listing.bathrooms} baths`}
             {listing?.squareFeet && ` • ${listing.squareFeet} sqft`}
           </Text>
           {(listing?.propertyType || point.properties.propertyType) && (
-            <Text color="gray.500" fontSize="sm">
+            <Text color="gray.500" fontSize="2xs">
               {listing?.propertyType || point.properties.propertyType}
             </Text>
           )}
           {(listing?.status || point.properties.status) && (
-            <Text color="blue.500" fontSize="sm">
+            <Text color="blue.500" fontSize="2xs">
               {listing?.status || point.properties.status}
             </Text>
           )}
           {(listing?.isAssumable || point.properties.isAssumable) && (
-            <Text color="#CDFF64" fontSize="sm" fontWeight="bold">
+            <Text color="#CDFF64" fontSize="2xs" fontWeight="bold">
               Assumable
             </Text>
           )}

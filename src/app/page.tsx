@@ -17,7 +17,6 @@ export default function Home() {
   const [selectedListings, setSelectedListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showMap, setShowMap] = useState(true) // Default to showing the map
   const [currentPolygon, setCurrentPolygon] = useState<Feature<Polygon> | null>(null)
   const [showOnlyAssumable, setShowOnlyAssumable] = useState(false)
 
@@ -77,10 +76,6 @@ export default function Home() {
     }
   }
 
-  const handleMapClick = () => {
-    setShowMap(!showMap)
-  }
-
   // Toggle whether to show only assumable listings
   const toggleAssumableFilter = () => {
     setShowOnlyAssumable(!showOnlyAssumable);
@@ -129,13 +124,6 @@ export default function Home() {
         </Button>
 
         <Button
-          colorScheme="red"
-          onClick={handleMapClick}
-        >
-          {showMap ? 'Hide Map' : 'Show Map'}
-        </Button>
-
-        <Button
           colorScheme="green"
           onClick={fetchPolygonListings}
           disabled={!currentPolygon}
@@ -167,7 +155,7 @@ export default function Home() {
 
       <Grid {...MAP_CONTAINER_STYLES.mainGrid}>
         {/* Map Column */}
-        {showMap && (
+        {
           <GridItem {...MAP_CONTAINER_STYLES.mapGridItem}>
             <Box {...MAP_CONTAINER_STYLES.mapBox}>
               <InteractiveMap
@@ -177,7 +165,7 @@ export default function Home() {
               />
             </Box>
           </GridItem>
-        )}
+        }
         {/* Listings Column */}
         <GridItem {...MAP_CONTAINER_STYLES.listingsContainer}>
           <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
