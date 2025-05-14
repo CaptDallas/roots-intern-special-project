@@ -168,7 +168,7 @@ export default function Home() {
         {/* Map Column */}
         {showMap && (
           <GridItem position="sticky" top="0">
-            <Box height={{ base: "500px", lg: "calc(100vh - 200px)" }} borderRadius="lg" overflow="hidden">
+            <Box height={{ base: "500px", lg: "calc(100vh - 150px)" }} borderRadius="lg" overflow="hidden">
               <InteractiveMap
                 listings={listings}
                 onPolygonChange={handlePolygonChange}
@@ -178,7 +178,7 @@ export default function Home() {
           </GridItem>
         )}
         {/* Listings Column */}
-        <GridItem overflow="auto" maxHeight={{ lg: "calc(100vh - 200px)" }} paddingRight={{ base: "0", md: "6" }}>
+        <GridItem overflow="auto" maxHeight={{ lg: "calc(100vh - 150px)" }} paddingRight={{ base: "0", md: "6" }}>
           <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
             {selectedListings.map((listing) => (
               <Box
