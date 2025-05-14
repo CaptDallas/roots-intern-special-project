@@ -1,7 +1,5 @@
-// Styling for map containers and related elements
 
 export const MAP_CONTAINER_STYLES = {
-  // Main map container
   mapBox: {
     height: { 
       base: "500px", 
@@ -11,7 +9,6 @@ export const MAP_CONTAINER_STYLES = {
     overflow: "hidden"
   },
   
-  // Listings container
   listingsContainer: {
     overflow: "auto",
     maxHeight: { 
@@ -23,7 +20,6 @@ export const MAP_CONTAINER_STYLES = {
     }
   },
   
-  // Main layout grid
   mainGrid: {
     templateColumns: { 
       base: "1fr", 
@@ -32,7 +28,6 @@ export const MAP_CONTAINER_STYLES = {
     gap: "6"
   },
   
-  // Map container grid item
   mapGridItem: {
     position: "sticky",
     top: "0"

@@ -1,14 +1,13 @@
 import type { LayerSpecification } from 'react-map-gl/mapbox';
 
-// Brand colors
 const BRAND_GREEN = '#CDFF64';
 const BRAND_GREEN_DARK = '#7b9334';
 const BRAND_GREEN_MEDIUM = '#b3df4a';
 const BRAND_GREEN_LIGHT = '#e4ffab';
+const BRAND_PURPLE = '#BE5EE0'; // complementary color
+const BRAND_GOLD = '#E0CD5E'; // split complementary color
 
-// Map layer definitions
 export const MAP_LAYERS = {
-  // Cluster styling
   clusterLayer: {
     id: 'clusters',
     type: 'circle',
@@ -22,7 +21,6 @@ export const MAP_LAYERS = {
     }
   } as LayerSpecification,
 
-  // Cluster count styling
   clusterCountLayer: {
     id: 'cluster-count',
     type: 'symbol',
@@ -38,7 +36,6 @@ export const MAP_LAYERS = {
     }
   } as LayerSpecification,
 
-  // Individual point styling
   unclusteredPointLayer: {
     id: 'unclustered-point',
     type: 'circle',
@@ -52,7 +49,6 @@ export const MAP_LAYERS = {
     }
   } as LayerSpecification,
 
-  // Highlighted point styling
   highlightedPointLayer: {
     id: 'highlighted-point',
     type: 'circle',
@@ -67,9 +63,7 @@ export const MAP_LAYERS = {
   } as LayerSpecification
 };
 
-// Drawing tool styles
 export const DRAW_STYLES = [
-  // Line style
   {
     id: 'gl-draw-line',
     type: 'line',
@@ -79,7 +73,6 @@ export const DRAW_STYLES = [
       'line-width': 2
     }
   },
-  // Fill area style
   {
     id: 'gl-draw-polygon-fill',
     type: 'fill',
@@ -90,7 +83,6 @@ export const DRAW_STYLES = [
       'fill-opacity': 0.1
     }
   },
-  // Polygon outline style
   {
     id: 'gl-draw-polygon-stroke-active',
     type: 'line',
@@ -100,7 +92,6 @@ export const DRAW_STYLES = [
       'line-width': 2
     }
   },
-  // Vertex style
   {
     id: 'gl-draw-point-point-stroke-active',
     type: 'circle',
@@ -114,7 +105,6 @@ export const DRAW_STYLES = [
   }
 ];
 
-// Map configuration
 export const MAP_CONFIG = {
   mapStyle: "mapbox://styles/mapbox/light-v11",
   initialZoom: 12,

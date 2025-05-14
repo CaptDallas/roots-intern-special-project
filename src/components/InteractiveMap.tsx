@@ -5,16 +5,19 @@ import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import ReactMapGL, { Source, Layer, MapRef, Popup, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
-import type { FeatureCollection, Point as GeoJSONPoint, Feature } from 'geojson';
+import type { FeatureCollection, Point as GeoJSONPoint, Feature, Polygon } from 'geojson';
 import type { MapMouseEvent } from 'mapbox-gl';
 import { Listing } from '@/types/listing';
 import { ListingPopup } from './ListingPopup';
 import { MAP_LAYERS, DRAW_STYLES, MAP_CONFIG } from '../app/styles/mapStyles';
+import PolygonLayer from './PolygonLayer';
+import type { SourceSpecification } from 'react-map-gl/mapbox';
 
 interface InteractiveMapProps {
   listings: Listing[];
-  onPolygonChange?: (polygon: Feature | null) => void;
+  onPolygonChange?: (polygon: Feature | null, action?: 'create' | 'delete' | 'clear') => void;
   onListingClick?: (listing: Listing) => void;
+  polygons?: Feature<Polygon>[];
 }
 
 type HoveredPoint = {
@@ -26,15 +29,31 @@ type HoveredPoint = {
 
 function usePolygonDrawing(
   mapRef: React.RefObject<MapRef | null>,
-  onPolygonChange?: (polygon: Feature | null) => void
+  onPolygonChange?: (polygon: Feature | null, action?: 'create' | 'delete' | 'clear') => void
 ) {
   const drawRef = useRef<MapboxDraw | null>(null);
 
-  const updatePolygon = () => {
+  const handleCreate = () => {
     if (!drawRef.current) return;
     const allData = drawRef.current.getAll();
     const polygon = allData.features[0] ?? null;
-    onPolygonChange?.(polygon);
+    onPolygonChange?.(polygon, 'create');
+    
+    // Clear the draw after we've captured the polygon
+    // This allows for drawing multiple polygons without them appearing in the UI
+    if (drawRef.current && polygon) {
+      drawRef.current.delete(polygon.id as string);
+    }
+  };
+  
+  const handleDelete = (e: any) => {
+    // Delete was triggered for a specific feature
+    if (e.features && e.features.length > 0) {
+      onPolygonChange?.(e.features[0], 'delete');
+    } else {
+      // This was a general delete (clear all)
+      onPolygonChange?.(null, 'clear');
+    }
   };
 
   const onMapLoad = () => {
@@ -54,9 +73,8 @@ function usePolygonDrawing(
     });
     map.addControl(drawRef.current, 'top-right');
 
-    map.on('draw.create', updatePolygon);
-    map.on('draw.update', updatePolygon);
-    map.on('draw.delete', () => onPolygonChange?.(null));
+    map.on('draw.create', handleCreate);
+    map.on('draw.delete', handleDelete);
   };
 
   return { onMapLoad };
@@ -102,7 +120,12 @@ function useListingsData(listings: Listing[]) {
 }
 
 
-export default function InteractiveMap({ listings, onPolygonChange, onListingClick }: InteractiveMapProps) {
+export default function InteractiveMap({ 
+  listings, 
+  onPolygonChange, 
+  onListingClick,
+  polygons = []
+}: InteractiveMapProps) {
   const mapRef = useRef<MapRef>(null);
   const { onMapLoad } = usePolygonDrawing(mapRef, onPolygonChange);
   const { geoJsonData, listingsMap } = useListingsData(listings);
@@ -184,6 +207,10 @@ export default function InteractiveMap({ listings, onPolygonChange, onListingCli
       onClick={handleClick}
     >
       <NavigationControl position="top-right" showCompass={true} />
+      
+      {/* Polygon Layer - displays saved polygons */}
+      <PolygonLayer polygons={polygons} />
+      
       {/* Map Data Source */}
       <Source
         id="points"

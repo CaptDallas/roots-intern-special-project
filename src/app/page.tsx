@@ -17,7 +17,7 @@ export default function Home() {
   const [selectedListings, setSelectedListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [currentPolygon, setCurrentPolygon] = useState<Feature<Polygon> | null>(null)
+  const [polygons, setPolygons] = useState<Feature<Polygon>[]>([])
   const [showOnlyAssumable, setShowOnlyAssumable] = useState(false)
 
   // Use 'recent' API endpoint to get listings
@@ -40,7 +40,7 @@ export default function Home() {
 
   // Use polygon API endpoint to get listings
   const fetchPolygonListings = async () => {
-    if (!currentPolygon) {
+    if (polygons.length === 0) {
       setError('Please draw a polygon on the map first')
       return
     }
@@ -53,7 +53,7 @@ export default function Home() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(currentPolygon)
+        body: JSON.stringify(polygons)
       })
       if (!response.ok) {
         const errorData = await response.json()
@@ -68,11 +68,16 @@ export default function Home() {
     }
   }
 
-  const handlePolygonChange = (polygon: Feature<Geometry> | null) => {
-    if (polygon && polygon.geometry.type === 'Polygon') {
-      setCurrentPolygon(polygon as Feature<Polygon>)
-    } else {
-      setCurrentPolygon(null)
+  const handlePolygonChange = (polygon: Feature<Geometry> | null, action?: 'create' | 'delete' | 'clear') => {
+    if (action === 'create' && polygon && polygon.geometry.type === 'Polygon') {
+      // Add new polygon to the array
+      setPolygons(prev => [...prev, polygon as Feature<Polygon>]);
+    } else if (action === 'delete' && polygon) {
+      // Remove specific polygon from the array
+      setPolygons(prev => prev.filter(p => p.id !== polygon.id));
+    } else if (action === 'clear' || !action) {
+      // Clear all polygons
+      setPolygons([]);
     }
   }
 
@@ -126,7 +131,7 @@ export default function Home() {
         <Button
           colorScheme="green"
           onClick={fetchPolygonListings}
-          disabled={!currentPolygon}
+          disabled={polygons.length === 0}
           loading={loading}
         >
           {loading ? 'Searching...' : 'Search in Polygon'}
@@ -138,6 +143,15 @@ export default function Home() {
         >
           {showOnlyAssumable ? 'Show All Listings' : 'Show Only Assumable'}
         </Button>
+
+        {polygons.length > 0 && (
+          <Button
+            colorScheme="red"
+            onClick={() => setPolygons([])}
+          >
+            Clear Polygons ({polygons.length})
+          </Button>
+        )}
 
         {selectedListings.length > 0 && (
           <Button
@@ -162,6 +176,7 @@ export default function Home() {
                 listings={listings}
                 onPolygonChange={handlePolygonChange}
                 onListingClick={handleListingClick}
+                polygons={polygons}
               />
             </Box>
           </GridItem>
