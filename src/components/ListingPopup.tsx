@@ -75,6 +75,17 @@ function renderListingImage(
   }
 }
 
+const popupOffsets = {
+  top:    [ 0,  10] as [number, number],
+  bottom: [ 0, -10] as [number, number],
+  left:   [ 10,  0] as [number, number],
+  right:  [-10,  0] as [number, number],
+  "top-left":    [10, 10] as [number, number],
+  "top-right":   [-10, 10] as [number, number],
+  "bottom-left": [10, -10] as [number, number],
+  "bottom-right":[-10,-10] as [number, number],
+};
+
 export function ListingPopup({ point, onClose }: ListingPopupProps) {
   const [imageError, setImageError] = useState(false);
   const listing = point?.originalListing;
@@ -87,8 +98,7 @@ export function ListingPopup({ point, onClose }: ListingPopupProps) {
       latitude={point.latitude}
       closeButton={false}
       closeOnClick={false}
-      anchor="bottom"
-      offset={[0, -10]}
+      offset={popupOffsets}
       onClose={onClose}
       style={{
         borderRadius: '8px',
