@@ -6,11 +6,12 @@ import ReactMapGL, { Source, Layer, MapRef, Popup, NavigationControl } from 'rea
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 import type { FeatureCollection, Point as GeoJSONPoint, Feature } from 'geojson';
-import type { LayerSpecification, SourceSpecification } from 'react-map-gl/mapbox';
+import type { SourceSpecification } from 'react-map-gl/mapbox';
 import { Box, Text, VStack, Image, Skeleton } from '@chakra-ui/react';
 import type { MapMouseEvent } from 'mapbox-gl';
 import { Listing } from '@/types/listing';
 import { ListingPopup } from './ListingPopup';
+import { MAP_LAYERS, DRAW_STYLES, MAP_CONFIG } from './mapStyles';
 
 interface InteractiveMapProps {
   listings: Listing[];
@@ -24,64 +25,6 @@ type HoveredPoint = {
   properties: any;
   originalListing?: Listing;
 } | null;
-
-// Mapbox layer definitions
-const MAP_LAYERS = {
-  clusterLayer: {
-    id: 'clusters',
-    type: 'circle',
-    source: 'points',
-    filter: ['has', 'point_count'],
-    paint: {
-      'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 25, 25],
-      'circle-color': ['step', ['get', 'point_count'], '#CDFF64', 10, '#b3df4a', 25, '#8FBC2B'],
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#7b9334'
-    }
-  } as LayerSpecification,
-
-  clusterCountLayer: {
-    id: 'cluster-count',
-    type: 'symbol',
-    source: 'points',
-    filter: ['has', 'point_count'],
-    layout: {
-      'text-field': '{point_count_abbreviated}',
-      'text-size': 14,
-      'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold']
-    },
-    paint: {
-      'text-color': '#000000'
-    }
-  } as LayerSpecification,
-
-  unclusteredPointLayer: {
-    id: 'unclustered-point',
-    type: 'circle',
-    source: 'points',
-    filter: ['!', ['has', 'point_count']],
-    paint: {
-      'circle-radius': 8,
-      'circle-color': '#CDFF64',
-      'circle-stroke-width': 1.5,
-      'circle-stroke-color': '#7b9334'
-    }
-  } as LayerSpecification,
-
-  highlightedPointLayer: {
-    id: 'highlighted-point',
-    type: 'circle',
-    source: 'points',
-    filter: ['==', 'id', ''],
-    paint: {
-      'circle-radius': 10,
-      'circle-color': '#CDFF64',
-      'circle-stroke-width': 2,
-      'circle-stroke-color': '#7b9334'
-    }
-  } as LayerSpecification
-};
-
 
 function usePolygonDrawing(
   mapRef: React.RefObject<MapRef | null>,
@@ -109,51 +52,7 @@ function usePolygonDrawing(
         uncombine_features: false
       },
       defaultMode: 'draw_polygon',
-      styles: [
-        // Set the line style
-        {
-          id: 'gl-draw-line',
-          type: 'line',
-          filter: ['all', ['==', '$type', 'LineString'], ['!=', 'mode', 'static']],
-          paint: {
-            'line-color': '#CDFF64',
-            'line-width': 2
-          }
-        },
-        // Styling for the fill area
-        {
-          id: 'gl-draw-polygon-fill',
-          type: 'fill',
-          filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
-          paint: {
-            'fill-color': '#CDFF64',
-            'fill-outline-color': '#CDFF64',
-            'fill-opacity': 0.1
-          }
-        },
-        // Styling for polygon outline
-        {
-          id: 'gl-draw-polygon-stroke-active',
-          type: 'line',
-          filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
-          paint: {
-            'line-color': '#CDFF64',
-            'line-width': 2
-          }
-        },
-        // Styling for vertices
-        {
-          id: 'gl-draw-point-point-stroke-active',
-          type: 'circle',
-          filter: ['all', ['==', '$type', 'Point'], ['==', 'meta', 'vertex']],
-          paint: {
-            'circle-radius': 5,
-            'circle-color': '#fff',
-            'circle-stroke-color': '#CDFF64',
-            'circle-stroke-width': 2
-          }
-        }
-      ]
+      styles: DRAW_STYLES
     });
     map.addControl(drawRef.current, 'top-right');
 
@@ -164,7 +63,6 @@ function usePolygonDrawing(
 
   return { onMapLoad };
 }
-
 
 function useListingsData(listings: Listing[]) {
   // Convert listings to GeoJSON format
@@ -251,7 +149,6 @@ function renderImageFallback(message: string) {
   );
 }
 
-
 export default function InteractiveMap({ listings, onPolygonChange, onListingClick }: InteractiveMapProps) {
   const mapRef = useRef<MapRef>(null);
   const { onMapLoad } = usePolygonDrawing(mapRef, onPolygonChange);
@@ -319,12 +216,12 @@ export default function InteractiveMap({ listings, onPolygonChange, onListingCli
     <ReactMapGL
       ref={mapRef}
       initialViewState={{
-        longitude: listings[0]?.longitude ?? -112.424063,
-        latitude: listings[0]?.latitude ?? 33.562417,
-        zoom: 12
+        longitude: listings[0]?.longitude ?? MAP_CONFIG.defaultLongitude,
+        latitude: listings[0]?.latitude ?? MAP_CONFIG.defaultLatitude,
+        zoom: MAP_CONFIG.initialZoom
       }}
       style={{ width: '100%', height: '100%' }}
-      mapStyle="mapbox://styles/mapbox/light-v11"
+      mapStyle={MAP_CONFIG.mapStyle}
       mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_API_SECRET_KEY}
       attributionControl={false}
       onLoad={onMapLoad}

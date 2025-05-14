@@ -5,6 +5,7 @@ import { Button, Heading, VStack, Text, Image, Box, SimpleGrid, Flex, Grid, Grid
 import dynamic from 'next/dynamic';
 import { Feature, Polygon, Geometry } from 'geojson';
 import { Listing } from '@/types/listing';
+import { MAP_CONTAINER_STYLES } from './styles/mapContainer';
 
 const InteractiveMap = dynamic(
   () => import('../components/InteractiveMap'),
@@ -164,11 +165,11 @@ export default function Home() {
         <Text color="red.500" textAlign="center" marginBottom="4">Error: {error}</Text>
       )}
 
-      <Grid templateColumns={{ base: "1fr", lg: "1fr 1fr" }} gap="6">
+      <Grid {...MAP_CONTAINER_STYLES.mainGrid}>
         {/* Map Column */}
         {showMap && (
-          <GridItem position="sticky" top="0">
-            <Box height={{ base: "500px", lg: "calc(100vh - 150px)" }} borderRadius="lg" overflow="hidden">
+          <GridItem {...MAP_CONTAINER_STYLES.mapGridItem}>
+            <Box {...MAP_CONTAINER_STYLES.mapBox}>
               <InteractiveMap
                 listings={listings}
                 onPolygonChange={handlePolygonChange}
@@ -178,7 +179,7 @@ export default function Home() {
           </GridItem>
         )}
         {/* Listings Column */}
-        <GridItem overflow="auto" maxHeight={{ lg: "calc(100vh - 150px)" }} paddingRight={{ base: "0", md: "6" }}>
+        <GridItem {...MAP_CONTAINER_STYLES.listingsContainer}>
           <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
             {selectedListings.map((listing) => (
               <Box
