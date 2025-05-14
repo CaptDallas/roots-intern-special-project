@@ -1,12 +1,15 @@
 'use client'
 
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { Button, Heading, VStack, Text, Image, Box, SimpleGrid, Flex, Badge, HStack } from "@chakra-ui/react"
 import dynamic from 'next/dynamic';
 import { Feature, Polygon, Geometry } from 'geojson';
 import { Listing } from '@/types/listing';
 import { MAP_CONTAINER_STYLES } from './styles/mapContainer';
 import { BRAND_GREEN } from './styles/mapStyles';
+
+// Shadow style to be applied to all buttons
+const BUTTON_SHADOW = "0px 4px 10px rgba(0,0,0,0.2)";
 
 const InteractiveMap = dynamic(
   () => import('../components/InteractiveMap'),
@@ -129,6 +132,20 @@ export default function Home() {
     }
   };
 
+  // Add keyboard shortcut for panel toggle
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 's' || e.key === 'S') {
+        togglePanel();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPanelOpen]); // Re-create the event listener when isPanelOpen changes
+
   return (
     <Box position="relative" height="100vh" overflow="hidden">
       <Box 
@@ -157,51 +174,67 @@ export default function Home() {
         alignItems="center" 
         p={6} 
         bg="transparent"
+        pointerEvents="none"
       >
-        <Box>
-          <Heading as="h1" size="2xl">Roots Homes</Heading>
-          <Heading textAlign="center" bg="black" color={BRAND_GREEN} p={0} borderRadius="lg" as="h1" size="3xl">Explorer</Heading>
+        <Box pointerEvents="auto">
+          <Heading textShadow={BUTTON_SHADOW} as="h1" size="2xl">Roots Homes</Heading>
+          <Heading boxShadow={BUTTON_SHADOW} textAlign="center" bg="black" color={BRAND_GREEN} p={0} borderRadius="lg" as="h1" size="3xl">Explorer</Heading>
         </Box>
 
         <HStack gap={4}>
           <Button
+            pointerEvents="auto"
             variant="outline"
             colorScheme="gray"
             onClick={toggleViewMode}
+            boxShadow={BUTTON_SHADOW}
+            _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
           >
             {viewMode === 'listings' ? 'View Dashboard' : 'View Listings'}
           </Button>
           
           {/* Drawing mode button */}
           <Button
+            pointerEvents="auto"
             colorScheme="green"
             variant="solid"
             onClick={enableDrawing}
+            boxShadow={BUTTON_SHADOW}
+            _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
           >
             Enable Drawing
           </Button>
           
           <Button
+            pointerEvents="auto"
             colorScheme="blue"
             onClick={fetchRecentListings}
             loading={loading}
+            boxShadow={BUTTON_SHADOW}
+            _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
           >
             {loading ? 'Fetching...' : 'Fetch Recent Listings'}
           </Button>
 
           <Button
+            pointerEvents="auto"
             colorScheme="green"
             onClick={fetchPolygonListings}
             disabled={polygons.length === 0}
             loading={loading}
+            boxShadow={BUTTON_SHADOW}
+            _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
           >
-            {loading ? 'Searching...' : 'Search in Polygon'}
+            {loading ? 'Searching...' : 'Search All Regions'}
           </Button>
           
           {polygons.length > 0 && (
             <Button
+              pointerEvents="auto"
               colorScheme="red"
               onClick={() => setPolygons([])}
+              boxShadow={BUTTON_SHADOW}
+              _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
             >
               Clear Polygons ({polygons.length})
             </Button>
@@ -209,24 +242,30 @@ export default function Home() {
 
           {selectedListings.length > 0 && (
             <Button
+              pointerEvents="auto"
               colorScheme="gray"
               onClick={clearSelectedListings}
+              boxShadow={BUTTON_SHADOW}
+              _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
             >
               Clear Favorites ({selectedListings.length})
             </Button>
           )}
           
           <Button 
+            pointerEvents="auto"
             colorScheme="blackAlpha" 
             onClick={togglePanel}
+            boxShadow={BUTTON_SHADOW}
+            _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
           >
-            {isPanelOpen ? "Hide Panel" : "Show Panel"}
+            {isPanelOpen ? "Hide Panel (S)" : "Show Panel (S)"}
           </Button>
         </HStack>
       </Flex>
 
       {error && (
-        <Box position="absolute" top="120px" left={0} right={0} zIndex={10} mx="auto" maxW="800px">
+        <Box position="absolute" top="120px" left={0} right={0} zIndex={10} mx="auto" maxW="800px" pointerEvents="auto">
           <Box p={4} bg="red.100" color="red.800" borderRadius="md">
             {error}
           </Box>
@@ -329,8 +368,11 @@ export default function Home() {
         onClick={togglePanel}
         transition="right 0.3s ease-in-out"
         size="sm"
+        pointerEvents="auto"
+        boxShadow={BUTTON_SHADOW}
+        _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
       >
-        {isPanelOpen ? "Hide" : "Show"}
+        {isPanelOpen ? "Hide (S)" : "Show (S)"}
       </Button>
     </Box>
   )
