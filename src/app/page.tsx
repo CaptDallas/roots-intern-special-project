@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useMemo } from 'react'
-import { Button, Heading, VStack, Text, Image, Box, SimpleGrid, Flex, Grid, GridItem, Badge, HStack } from "@chakra-ui/react"
+import { Button, Heading, VStack, Text, Image, Box, SimpleGrid, Flex, Badge, HStack } from "@chakra-ui/react"
 import dynamic from 'next/dynamic';
 import { Feature, Polygon, Geometry } from 'geojson';
 import { Listing } from '@/types/listing';
@@ -18,7 +18,6 @@ const Dashboard = dynamic(
   { ssr: false }
 );
 
-// View mode type for toggling between listings and dashboard
 type ViewMode = 'listings' | 'dashboard';
 
 export default function Home() {
@@ -29,8 +28,8 @@ export default function Home() {
   const [polygons, setPolygons] = useState<Feature<Polygon>[]>([])
   const [showOnlyAssumable, setShowOnlyAssumable] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('listings')
+  const [isPanelOpen, setIsPanelOpen] = useState(false)
 
-  // Use 'recent' API endpoint to get listings
   const fetchRecentListings = async () => {
     setLoading(true)
     setError(null)
@@ -48,7 +47,6 @@ export default function Home() {
     }
   }
 
-  // Use polygon API endpoint to get listings
   const fetchPolygonListings = async () => {
     if (polygons.length === 0) {
       setError('Please draw a polygon on the map first')
@@ -80,215 +78,235 @@ export default function Home() {
 
   const handlePolygonChange = (polygon: Feature<Geometry> | null, action?: 'create' | 'delete' | 'clear') => {
     if (action === 'create' && polygon && polygon.geometry.type === 'Polygon') {
-      // Add new polygon to the array
       setPolygons(prev => [...prev, polygon as Feature<Polygon>]);
     } else if (action === 'delete' && polygon) {
-      // Remove specific polygon from the array
       setPolygons(prev => prev.filter(p => p.id !== polygon.id));
     } else if (action === 'clear' || !action) {
-      // Clear all polygons
       setPolygons([]);
     }
   }
 
-  // Toggle whether to show only assumable listings
   const toggleAssumableFilter = () => {
     setShowOnlyAssumable(!showOnlyAssumable);
   };
 
-  // Handle when a user clicks on a listing marker in the map
   const handleListingClick = useCallback((listing: Listing) => {
-    // Check if the listing is already in the selected listings
     if (!selectedListings.some(selected => selected.id === listing.id)) {
       setSelectedListings(prev => [...prev, listing]);
     }
   }, [selectedListings]);
 
-  // Clear selected listings
   const clearSelectedListings = useCallback(() => {
     setSelectedListings([]);
   }, []);
 
-  // Filter listings based on the showOnlyAssumable state
   const filteredListings = showOnlyAssumable 
     ? selectedListings.filter(listing => listing.isAssumable)
     : selectedListings;
 
-  // Toggle between listings and dashboard views
+  const togglePanel = () => {
+    setIsPanelOpen(!isPanelOpen);
+  };
+
   const toggleViewMode = () => {
     setViewMode(viewMode === 'listings' ? 'dashboard' : 'listings');
+    if (!isPanelOpen) {
+      setIsPanelOpen(true);
+    }
   };
 
   return (
-    <Box>
-      <VStack gap={6} align="stretch">
-        <Flex justifyContent="space-between" alignItems="center" p={6} bg={BRAND_GREEN}>
-          <Heading textAlign="center" as="h1" size="3xl">Roots Home Explorer</Heading>
-          
-          <HStack gap={4}>
-            <Button
-              variant="outline"
-              colorScheme="gray"
-              onClick={toggleViewMode}
-            >
-              {viewMode === 'listings' ? 'View Dashboard' : 'View Listings'}
-            </Button>
-            <Button
-              colorScheme="blue"
-              onClick={fetchRecentListings}
-              loading={loading}
-            >
-              {loading ? 'Fetching...' : 'Fetch Recent Listings'}
-            </Button>
+    <Box position="relative" height="100vh" overflow="hidden">
+      <Box 
+        position="absolute"
+        top={0}
+        left={0}
+        right={0}
+        bottom={0}
+      >
+        <InteractiveMap
+          listings={listings}
+          onPolygonChange={handlePolygonChange}
+          onListingClick={handleListingClick}
+          polygons={polygons}
+        />
+      </Box>
+      
+      <Flex 
+        position="absolute" 
+        top={0} 
+        left={0} 
+        right={0} 
+        zIndex={10} 
+        justifyContent="space-between" 
+        alignItems="center" 
+        p={6} 
+        bg="transparent"
+      >
+        <Box>
+          <Heading as="h1" size="2xl">Roots Homes</Heading>
+          <Heading textAlign="center" bg="black" color={BRAND_GREEN} p={0} borderRadius="lg" as="h1" size="3xl">Explorer</Heading>
+        </Box>
 
-            <Button
-              colorScheme="green"
-              onClick={fetchPolygonListings}
-              disabled={polygons.length === 0}
-              loading={loading}
-            >
-              {loading ? 'Searching...' : 'Search in Polygon'}
-            </Button>
-            
-            {polygons.length > 0 && (
-              <Button
-                colorScheme="red"
-                onClick={() => setPolygons([])}
-              >
-                Clear Polygons ({polygons.length})
-              </Button>
-            )}
-
-            {selectedListings.length > 0 && (
-              <Button
-                colorScheme="gray"
-                onClick={clearSelectedListings}
-              >
-                Clear Favorites ({selectedListings.length})
-              </Button>
-            )}
-          </HStack>
-        </Flex>
-
-        {/* Action buttons for fetching listings */}
-        <Flex gap={4} wrap="wrap">
+        <HStack gap={4}>
           <Button
-            onClick={() => setShowOnlyAssumable(!showOnlyAssumable)}
-            variant={showOnlyAssumable ? "solid" : "outline"}
-            colorScheme="green"
+            variant="outline"
+            colorScheme="gray"
+            onClick={toggleViewMode}
           >
-            {showOnlyAssumable ? "Showing Assumable Only" : "Show All Listings"}
+            {viewMode === 'listings' ? 'View Dashboard' : 'View Listings'}
+          </Button>
+          <Button
+            colorScheme="blue"
+            onClick={fetchRecentListings}
+            loading={loading}
+          >
+            {loading ? 'Fetching...' : 'Fetch Recent Listings'}
+          </Button>
+
+          <Button
+            colorScheme="green"
+            onClick={fetchPolygonListings}
+            disabled={polygons.length === 0}
+            loading={loading}
+          >
+            {loading ? 'Searching...' : 'Search in Polygon'}
           </Button>
           
-          {/* Clear polygon button - only show if polygons exist */}
           {polygons.length > 0 && (
             <Button
-              onClick={() => {
-                setPolygons([]);
-                // Reset to showing all listings if we were filtering
-                if (selectedListings.length < listings.length) {
-                  setSelectedListings(listings);
-                }
-              }}
               colorScheme="red"
-              variant="outline"
+              onClick={() => setPolygons([])}
             >
               Clear Polygons ({polygons.length})
             </Button>
           )}
-        </Flex>
 
-        {error && (
+          {selectedListings.length > 0 && (
+            <Button
+              colorScheme="gray"
+              onClick={clearSelectedListings}
+            >
+              Clear Favorites ({selectedListings.length})
+            </Button>
+          )}
+          
+          <Button 
+            colorScheme="blackAlpha" 
+            onClick={togglePanel}
+          >
+            {isPanelOpen ? "Hide Panel" : "Show Panel"}
+          </Button>
+        </HStack>
+      </Flex>
+
+      {error && (
+        <Box position="absolute" top="120px" left={0} right={0} zIndex={10} mx="auto" maxW="800px">
           <Box p={4} bg="red.100" color="red.800" borderRadius="md">
             {error}
           </Box>
+        </Box>
+      )}
+      
+      {/* Slide-in panel for listings or dashboard */}
+      <Box
+        position="absolute"
+        top="120px"
+        right={0}
+        height="calc(100vh - 120px)"
+        width="500px"
+        bg="white"
+        boxShadow="-5px 0 10px rgba(0,0,0,0.1)"
+        transform={isPanelOpen ? "translateX(0)" : "translateX(100%)"}
+        transition="transform 0.3s ease-in-out"
+        zIndex={5}
+        overflow="auto"
+        p={6}
+      >
+        {viewMode === 'listings' ? (
+          <VStack align="stretch" gap={6}>
+            <Heading size="md">
+              {selectedListings.length} Selected Listings
+            </Heading>
+            <SimpleGrid columns={1} gap={6}>
+              {selectedListings.map((listing) => (
+                <Box
+                  key={listing.id}
+                  borderWidth={selectedListings.some(selected => selected.id === listing.id) ? "2px" : "1px"}
+                  borderRadius="lg"
+                  overflow="hidden"
+                  p={4}
+                  position="relative"
+                  borderColor={selectedListings.some(selected => selected.id === listing.id) ? BRAND_GREEN : "inherit"}
+                >
+                  {listing.isAssumable && (
+                    <Badge 
+                      position="absolute" 
+                      top="2" 
+                      right="2" 
+                      bg={BRAND_GREEN} 
+                      color="black"
+                      zIndex="1"
+                    >
+                      Assumable
+                    </Badge>
+                  )}
+                  {listing.photoUrls && listing.photoUrls[0] && (
+                    <Image
+                      src={listing.photoUrls[0]}
+                      alt={listing.address}
+                      height="120px"
+                      width="100%"
+                      objectFit="cover"
+                      borderRadius="md"
+                      onError={(e) => {
+                        console.error('Card image failed to load:', e.currentTarget.src);
+                      }}
+                    />
+                  )}
+                  <VStack align="start" mt={4} gap={2}>
+                    <Text fontWeight="bold" fontSize="lg">
+                      ${listing.price.toLocaleString()}
+                    </Text>
+                    <Text fontSize="sm">{listing.address}</Text>
+                    {listing.city && listing.state && (
+                      <Text fontSize="sm">{`${listing.city}, ${listing.state}`}</Text>
+                    )}
+                    <Text fontSize="sm">
+                      {listing.bedrooms && `${listing.bedrooms} beds`}
+                      {listing.bathrooms && ` • ${listing.bathrooms} baths`}
+                      {listing.squareFeet && ` • ${listing.squareFeet} sqft`}
+                    </Text>
+                    <Text color="gray.500" fontSize="xs">
+                      {listing.propertyType}
+                    </Text>
+                    <Text color="blue.500" fontSize="xs">
+                      {listing.status}
+                    </Text>
+                  </VStack>
+                </Box>
+              ))}
+            </SimpleGrid>
+          </VStack>
+        ) : (
+          <Dashboard listings={listings} />
         )}
-
-        <Text>Showing {selectedListings.length} of {listings.length} listings</Text>
-
-        <Grid {...MAP_CONTAINER_STYLES.mainGrid}>
-          {/* Map Column */}
-          <GridItem {...MAP_CONTAINER_STYLES.mapGridItem}>
-            <Box {...MAP_CONTAINER_STYLES.mapBox}>
-              <InteractiveMap
-                listings={listings}
-                onPolygonChange={handlePolygonChange}
-                onListingClick={handleListingClick}
-                polygons={polygons}
-              />
-            </Box>
-          </GridItem>
-          
-          {/* Listings/Dashboard Column */}
-          <GridItem {...MAP_CONTAINER_STYLES.listingsContainer}>
-            {viewMode === 'listings' ? (
-              <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
-                {selectedListings.map((listing) => (
-                  <Box
-                    key={listing.id}
-                    borderWidth={selectedListings.some(selected => selected.id === listing.id) ? "2px" : "1px"}
-                    borderRadius="lg"
-                    overflow="hidden"
-                    p={4}
-                    position="relative"
-                    borderColor={selectedListings.some(selected => selected.id === listing.id) ? "#CDFF64" : "inherit"}
-                  >
-                    {listing.isAssumable && (
-                      <Badge 
-                        position="absolute" 
-                        top="2" 
-                        right="2" 
-                        bg="#CDFF64" 
-                        color="black"
-                        zIndex="1"
-                      >
-                        Assumable
-                      </Badge>
-                    )}
-                    {listing.photoUrls && listing.photoUrls[0] && (
-                      <>
-                        <Image
-                          src={listing.photoUrls[0]}
-                          alt={listing.address}
-                          height="150px"
-                          width="100%"
-                          objectFit="cover"
-                          borderRadius="md"
-                          onError={(e) => {
-                            console.error('Card image failed to load:', e.currentTarget.src);
-                          }}
-                        />
-                      </>
-                    )}
-                    <VStack align="start" mt={4} gap={2}>
-                      <Text fontWeight="bold" fontSize="xl">
-                        ${listing.price.toLocaleString()}
-                      </Text>
-                      <Text>{listing.address}</Text>
-                      {listing.city && listing.state && (
-                        <Text>{`${listing.city}, ${listing.state}`}</Text>
-                      )}
-                      <Text>
-                        {listing.bedrooms && `${listing.bedrooms} beds`}
-                        {listing.bathrooms && ` • ${listing.bathrooms} baths`}
-                        {listing.squareFeet && ` • ${listing.squareFeet} sqft`}
-                      </Text>
-                      <Text color="gray.500" fontSize="sm">
-                        {listing.propertyType}
-                      </Text>
-                      <Text color="blue.500" fontSize="sm">
-                        {listing.status}
-                      </Text>
-                    </VStack>
-                  </Box>
-                ))}
-              </SimpleGrid>
-            ) : (
-              <Dashboard listings={listings} />
-            )}
-          </GridItem>
-        </Grid>
-      </VStack>
+      </Box>
+      
+      {/* Toggle button at the side (alternative to the header button) */}
+      <Button
+        position="absolute"
+        top="50%"
+        right={isPanelOpen ? "500px" : "0"}
+        transform="translateY(-50%) translateX(-50%) rotate(-90deg)"
+        zIndex={6}
+        colorScheme="blackAlpha"
+        onClick={togglePanel}
+        transition="right 0.3s ease-in-out"
+        size="sm"
+      >
+        {isPanelOpen ? "Hide" : "Show"}
+      </Button>
     </Box>
   )
 }
