@@ -9,13 +9,30 @@ import {
   SimpleGrid,
   Flex, 
   Icon,
-  BoxProps
+  BoxProps,
+  Button,
+  HStack,
 } from "@chakra-ui/react";
 import { Listing } from '@/types/listing';
+import { Feature, Polygon } from 'geojson';
 const BRAND_GREEN = '#CDFF64';
+
+// Define search result type
+type SearchResult = {
+  id: string;
+  timestamp: Date;
+  polygons: Feature<Polygon>[];
+  listings: Listing[];
+};
 
 interface DashboardProps {
   listings: Listing[];
+  searchHistory: SearchResult[];
+  activeSearchIndex: number;
+  onNextSearch: () => void;
+  onPreviousSearch: () => void;
+  showHistoricalPolygons?: boolean;
+  onToggleHistoricalPolygons?: () => void;
 }
 
 const StatCard = ({ title, value, subtitle, ...props }: {
@@ -34,7 +51,15 @@ const StatCard = ({ title, value, subtitle, ...props }: {
   </Box>
 );
 
-export default function Dashboard({ listings }: DashboardProps) {
+export default function Dashboard({ 
+  listings, 
+  searchHistory, 
+  activeSearchIndex, 
+  onNextSearch, 
+  onPreviousSearch,
+  showHistoricalPolygons = false,
+  onToggleHistoricalPolygons
+}: DashboardProps) {
   // Calculate dashboard metrics
   const assumableListings = listings.filter(listing => listing.isAssumable);
   const avgPrice = listings.length 
@@ -67,8 +92,6 @@ export default function Dashboard({ listings }: DashboardProps) {
     return rates[midIndex];
   })();
     
-  console.log('Assumable listings:', assumableListings.length, 'Median interest rate:', medianInterestRate);
-  
   // Get property types distribution
   const propertyTypes = listings.reduce((acc, listing) => {
     const type = listing.propertyType || 'Unknown';
@@ -76,9 +99,58 @@ export default function Dashboard({ listings }: DashboardProps) {
     return acc;
   }, {} as Record<string, number>);
   
+  // Get active search information
+  const activeSearch = searchHistory[activeSearchIndex];
+  const hasMultipleSearches = searchHistory.length > 1;
+  
   return (
     <VStack gap={6} align="stretch" h="100%">
-      <Heading size="lg" mb={2}>Dashboard</Heading>
+      <Box>
+        <Heading size="lg" mb={2}>Dashboard</Heading>
+        {hasMultipleSearches && (
+          <HStack justifyContent="space-between" mb={4}>
+            <Text fontSize="sm" color="gray.600">
+              Search {activeSearchIndex + 1} of {searchHistory.length}
+              {activeSearch && ` • ${new Date(activeSearch.timestamp).toLocaleString()}`}
+            </Text>
+            <HStack gap={2}>
+              <Button 
+                size="sm" 
+                onClick={onPreviousSearch} 
+                disabled={activeSearchIndex >= searchHistory.length - 1}
+              >
+                Older
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={onNextSearch} 
+                disabled={activeSearchIndex <= 0}
+              >
+                Newer
+              </Button>
+            </HStack>
+          </HStack>
+        )}
+        {activeSearch && activeSearch.polygons.length > 0 && (
+          <VStack align="stretch" mb={4} gap={2}>
+            <Text fontSize="sm" color="gray.600">
+              {activeSearch.polygons.length} {activeSearch.polygons.length === 1 ? 'region' : 'regions'} searched
+              • {listings.length} listings found
+            </Text>
+            {onToggleHistoricalPolygons && (
+              <Button 
+                size="xs" 
+                variant={showHistoricalPolygons ? "solid" : "outline"}
+                colorScheme="teal" 
+                onClick={onToggleHistoricalPolygons}
+                alignSelf="flex-start"
+              >
+                {showHistoricalPolygons ? "Hide Region on Map" : "Show Region on Map"}
+              </Button>
+            )}
+          </VStack>
+        )}
+      </Box>
       
       {/* Key Stats */}
       <SimpleGrid columns={{ base: 1, md: 3 }} gap={4}>
@@ -91,7 +163,7 @@ export default function Dashboard({ listings }: DashboardProps) {
         <StatCard 
           title="Assumable Listings" 
           value={assumableListings.length} 
-          subtitle={`${Math.round((assumableListings.length / listings.length) * 100) || 0}% of inventory`}
+          subtitle={`${Math.round((assumableListings.length / (listings.length || 1)) * 100) || 0}% of inventory`}
         />
         
         <StatCard 

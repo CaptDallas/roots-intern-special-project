@@ -17,6 +17,7 @@ interface InteractiveMapProps {
   onPolygonChange?: (polygon: Feature | null, action?: 'create' | 'delete' | 'clear') => void;
   onListingClick?: (listing: Listing) => void;
   polygons?: Feature<Polygon>[];
+  historicalPolygons?: Feature<Polygon>[];
 }
 
 type HoveredPoint = {
@@ -150,6 +151,7 @@ export default function InteractiveMap({
   onPolygonChange, 
   onListingClick,
   polygons = [],
+  historicalPolygons = [],
   onEnableDrawingRef
 }: InteractiveMapProps & { 
   onEnableDrawingRef?: React.MutableRefObject<(() => boolean) | null> 
@@ -255,7 +257,10 @@ export default function InteractiveMap({
     >
       
       {/* Polygon Layer - displays saved polygons */}
-      <PolygonLayer polygons={polygons} />
+      <PolygonLayer 
+        polygons={polygons} 
+        historicalPolygons={historicalPolygons} 
+      />
       
       {/* Map Data Source */}
       <Source

@@ -11,6 +11,14 @@ import { BRAND_GREEN } from './styles/mapStyles';
 // Shadow style to be applied to all buttons
 const BUTTON_SHADOW = "0px 4px 10px rgba(0,0,0,0.2)";
 
+// Define a type for search results
+type SearchResult = {
+  id: string;
+  timestamp: Date;
+  polygons: Feature<Polygon>[];
+  listings: Listing[];
+};
+
 const InteractiveMap = dynamic(
   () => import('../components/InteractiveMap'),
   { ssr: false, loading: () => <p>Loading map…</p> }
@@ -24,11 +32,15 @@ const Dashboard = dynamic(
 type ViewMode = 'listings' | 'dashboard';
 
 export default function Home() {
-  const [listings, setListings] = useState<Listing[]>([])
+  // Replace the listings state with a search history array
+  const [searchHistory, setSearchHistory] = useState<SearchResult[]>([])
+  const [activeSearchIndex, setActiveSearchIndex] = useState<number>(0)
+  
   const [selectedListings, setSelectedListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [polygons, setPolygons] = useState<Feature<Polygon>[]>([])
+  const [showHistoricalPolygons, setShowHistoricalPolygons] = useState(false)
   const [showOnlyAssumable, setShowOnlyAssumable] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('listings')
   const [isPanelOpen, setIsPanelOpen] = useState(false)
@@ -47,6 +59,18 @@ export default function Home() {
     }
   };
 
+  // Get current active listings from search history
+  const listings = useMemo(() => {
+    if (searchHistory.length === 0) return [];
+    return searchHistory[activeSearchIndex]?.listings || [];
+  }, [searchHistory, activeSearchIndex]);
+
+  // Get historical polygons from the active search
+  const historicalPolygons = useMemo(() => {
+    if (!showHistoricalPolygons || searchHistory.length === 0 || activeSearchIndex < 0) return [];
+    return searchHistory[activeSearchIndex]?.polygons || [];
+  }, [searchHistory, activeSearchIndex, showHistoricalPolygons]);
+
   const fetchRecentListings = async () => {
     setLoading(true)
     setError(null)
@@ -56,7 +80,18 @@ export default function Home() {
         throw new Error('Failed to fetch recent listings')
       }
       const data = await response.json()
-      setListings(data)
+      
+      // Create a new search result
+      const newSearch: SearchResult = {
+        id: `recent_${Date.now()}`,
+        timestamp: new Date(),
+        polygons: [], // No polygons for recent listings
+        listings: data
+      };
+      
+      // Add to search history
+      setSearchHistory(prev => [newSearch, ...prev]);
+      setActiveSearchIndex(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
@@ -85,13 +120,37 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to fetch polygon listings')
       }
       const data = await response.json()
-      setListings(data)
+      
+      // Create a new search result
+      const newSearch: SearchResult = {
+        id: `polygon_${Date.now()}`,
+        timestamp: new Date(),
+        polygons: [...polygons], // Create a copy of the polygons array
+        listings: data
+      };
+      
+      // Add to search history
+      setSearchHistory(prev => [newSearch, ...prev]);
+      setActiveSearchIndex(0);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setLoading(false)
     }
   }
+
+  // Function to cycle through search history
+  const switchToNextSearch = () => {
+    if (activeSearchIndex > 0) {
+      setActiveSearchIndex(activeSearchIndex - 1);
+    }
+  };
+
+  const switchToPreviousSearch = () => {
+    if (activeSearchIndex < searchHistory.length - 1) {
+      setActiveSearchIndex(activeSearchIndex + 1);
+    }
+  };
 
   const handlePolygonChange = (polygon: Feature<Geometry> | null, action?: 'create' | 'delete' | 'clear') => {
     if (action === 'create' && polygon && polygon.geometry.type === 'Polygon') {
@@ -132,6 +191,11 @@ export default function Home() {
     }
   };
 
+  // Toggle showing historical polygons
+  const toggleHistoricalPolygons = useCallback(() => {
+    setShowHistoricalPolygons(prev => !prev);
+  }, []);
+
   // Add keyboard shortcut for panel toggle
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -160,6 +224,7 @@ export default function Home() {
           onPolygonChange={handlePolygonChange}
           onListingClick={handleListingClick}
           polygons={polygons}
+          historicalPolygons={historicalPolygons}
           onEnableDrawingRef={enableDrawingRef}
         />
       </Box>
@@ -219,26 +284,17 @@ export default function Home() {
           <Button
             pointerEvents="auto"
             colorScheme="green"
-            onClick={fetchPolygonListings}
+            onClick={() => {
+              fetchPolygonListings();
+              setPolygons([]);
+            }}
             disabled={polygons.length === 0}
             loading={loading}
             boxShadow={BUTTON_SHADOW}
             _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
           >
-            {loading ? 'Searching...' : 'Search All Regions'}
+            {loading ? 'Searching...' : 'Search Region'}
           </Button>
-          
-          {polygons.length > 0 && (
-            <Button
-              pointerEvents="auto"
-              colorScheme="red"
-              onClick={() => setPolygons([])}
-              boxShadow={BUTTON_SHADOW}
-              _hover={{ boxShadow: "0px 6px 12px rgba(0,0,0,0.25)" }}
-            >
-              Clear Polygons ({polygons.length})
-            </Button>
-          )}
 
           {selectedListings.length > 0 && (
             <Button
@@ -353,7 +409,15 @@ export default function Home() {
             </SimpleGrid>
           </VStack>
         ) : (
-          <Dashboard listings={listings} />
+          <Dashboard 
+            listings={listings}
+            searchHistory={searchHistory}
+            activeSearchIndex={activeSearchIndex}
+            onNextSearch={switchToNextSearch}
+            onPreviousSearch={switchToPreviousSearch}
+            showHistoricalPolygons={showHistoricalPolygons}
+            onToggleHistoricalPolygons={toggleHistoricalPolygons}
+          />
         )}
       </Box>
       
