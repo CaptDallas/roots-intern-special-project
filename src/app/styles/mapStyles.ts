@@ -1,11 +1,11 @@
 import type { LayerSpecification } from 'react-map-gl/mapbox';
 
-const BRAND_GREEN = '#CDFF64';
-const BRAND_GREEN_DARK = '#7b9334';
-const BRAND_GREEN_MEDIUM = '#b3df4a';
-const BRAND_GREEN_LIGHT = '#e4ffab';
-const BRAND_PURPLE = '#BE5EE0'; // complementary color
-const BRAND_GOLD = '#E0CD5E'; // split complementary color
+export const BRAND_GREEN = '#CDFF64';
+export const BRAND_GREEN_DARK = '#7b9334';
+export const BRAND_GREEN_MEDIUM = '#b3df4a';
+export const BRAND_GREEN_LIGHT = '#e4ffab';
+export const BRAND_PURPLE = '#BE5EE0'; // complementary color
+export const BRAND_GOLD = '#E0CD5E'; // split complementary color
 
 export const MAP_LAYERS = {
   clusterLayer: {

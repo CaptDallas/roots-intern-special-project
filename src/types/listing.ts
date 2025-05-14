@@ -15,4 +15,5 @@ export interface Listing {
   latitude: number;
   longitude: number;
   isAssumable: boolean;
+  denormalizedAssumableInterestRate: number;
 } 

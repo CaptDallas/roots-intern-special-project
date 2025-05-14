@@ -22,7 +22,9 @@ export async function GET() {
         status: true,
         createdAt: true,
         latitude: true,
-        longitude: true
+        longitude: true,
+        isAssumable: true,
+        denormalizedAssumableInterestRate: true
       }
     })
 

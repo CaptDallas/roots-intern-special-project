@@ -11,7 +11,6 @@ import { Listing } from '@/types/listing';
 import { ListingPopup } from './ListingPopup';
 import { MAP_LAYERS, DRAW_STYLES, MAP_CONFIG } from '../app/styles/mapStyles';
 import PolygonLayer from './PolygonLayer';
-import type { SourceSpecification } from 'react-map-gl/mapbox';
 
 interface InteractiveMapProps {
   listings: Listing[];

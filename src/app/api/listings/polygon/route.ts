@@ -64,7 +64,8 @@ export async function POST(request: Request) {
             l."createdAt" as "createdAt",
             l.latitude::float as latitude,
             l.longitude::float as longitude,
-            l."isAssumable" as "isAssumable"
+            l."isAssumable" as "isAssumable",
+            l."denormalizedAssumableInterestRate"::float as "denormalizedAssumableInterestRate"
           FROM "Listing" l
           WHERE ST_Contains(
             ST_SetSRID(ST_GeomFromText(${wktPolygons[0]}), 4326),
@@ -101,7 +102,8 @@ export async function POST(request: Request) {
             l."createdAt" as "createdAt",
             l.latitude::float as latitude,
             l.longitude::float as longitude,
-            l."isAssumable" as "isAssumable"
+            l."isAssumable" as "isAssumable",
+            l."denormalizedAssumableInterestRate"::float as "denormalizedAssumableInterestRate"
           FROM "Listing" l, union_geom
           WHERE ST_Contains(
             union_geom.union_geom,
