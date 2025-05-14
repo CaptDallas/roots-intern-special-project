@@ -1,6 +1,6 @@
 'use client';  // Next 13+ App Router; omit for pages/
 
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import ReactMapGL, { Source, Layer, MapRef, Popup, NavigationControl } from 'react-map-gl/mapbox';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -32,6 +32,15 @@ function usePolygonDrawing(
 ) {
   const drawRef = useRef<MapboxDraw | null>(null);
 
+  // Method to explicitly enable drawing mode
+  const enableDrawingMode = useCallback(() => {
+    if (drawRef.current) {
+      drawRef.current.changeMode('draw_polygon');
+      return true;
+    }
+    return false;
+  }, []);
+
   const handleCreate = () => {
     if (!drawRef.current) return;
     const allData = drawRef.current.getAll();
@@ -42,18 +51,35 @@ function usePolygonDrawing(
     // This allows for drawing multiple polygons without them appearing in the UI
     if (drawRef.current && polygon) {
       drawRef.current.delete(polygon.id as string);
+      
+      // Set back to drawing mode after a short delay to avoid state conflicts
+      setTimeout(() => {
+        if (drawRef.current) {
+          drawRef.current.changeMode('draw_polygon');
+        }
+      }, 50);
     }
   };
-  
-  const handleDelete = (e: any) => {
-    // Delete was triggered for a specific feature
-    if (e.features && e.features.length > 0) {
-      onPolygonChange?.(e.features[0], 'delete');
-    } else {
-      // This was a general delete (clear all)
-      onPolygonChange?.(null, 'clear');
+
+  // Method to programmatically clear all drawings
+  const clearAllDrawings = useCallback(() => {
+    if (drawRef.current) {
+      const allFeatures = drawRef.current.getAll();
+      if (allFeatures.features.length > 0) {
+        allFeatures.features.forEach(feature => {
+          drawRef.current?.delete(feature.id as string);
+        });
+        onPolygonChange?.(null, 'clear');
+        
+        // Reset back to drawing mode after a short delay
+        setTimeout(() => {
+          if (drawRef.current) {
+            drawRef.current.changeMode('draw_polygon');
+          }
+        }, 50);
+      }
     }
-  };
+  }, [onPolygonChange]);
 
   const onMapLoad = () => {
     const map = mapRef.current?.getMap();
@@ -61,22 +87,23 @@ function usePolygonDrawing(
 
     drawRef.current = new MapboxDraw({
       displayControlsDefault: false,
-      controls: { 
-        polygon: true, 
-        trash: true,
+      controls: {
+        // No visible controls - always in polygon draw mode
+        polygon: false,
+        trash: false,
         combine_features: false,
         uncombine_features: false
       },
       defaultMode: 'draw_polygon',
       styles: DRAW_STYLES
     });
-    map.addControl(drawRef.current, 'top-right');
+    map.addControl(drawRef.current);
 
     map.on('draw.create', handleCreate);
-    map.on('draw.delete', handleDelete);
+    // We don't need delete handler since we're not showing delete controls
   };
 
-  return { onMapLoad };
+  return { onMapLoad, clearAllDrawings, enableDrawingMode };
 }
 
 function useListingsData(listings: Listing[]) {
@@ -118,18 +145,39 @@ function useListingsData(listings: Listing[]) {
   return { geoJsonData, listingsMap };
 }
 
-
 export default function InteractiveMap({ 
   listings, 
   onPolygonChange, 
   onListingClick,
-  polygons = []
-}: InteractiveMapProps) {
+  polygons = [],
+  onEnableDrawingRef
+}: InteractiveMapProps & { 
+  onEnableDrawingRef?: React.MutableRefObject<(() => boolean) | null> 
+}) {
   const mapRef = useRef<MapRef>(null);
-  const { onMapLoad } = usePolygonDrawing(mapRef, onPolygonChange);
+  const { onMapLoad, clearAllDrawings, enableDrawingMode } = usePolygonDrawing(mapRef, onPolygonChange);
   const { geoJsonData, listingsMap } = useListingsData(listings);
   const [hoveredPoint, setHoveredPoint] = useState<HoveredPoint>(null);
   const [hoveredId, setHoveredId] = useState<string>('');
+
+  // Effect to expose the enableDrawingMode function to the parent component
+  useEffect(() => {
+    if (onEnableDrawingRef) {
+      onEnableDrawingRef.current = enableDrawingMode;
+    }
+    return () => {
+      if (onEnableDrawingRef) {
+        onEnableDrawingRef.current = null;
+      }
+    };
+  }, [enableDrawingMode, onEnableDrawingRef]);
+
+  // Add effect to handle polygon clearing request from parent
+  useEffect(() => {
+    if (polygons.length === 0) {
+      clearAllDrawings();
+    }
+  }, [polygons.length, clearAllDrawings]);
 
   const handleMouseEnter = (e: MapMouseEvent) => {
     if (!e.features?.length) return;
@@ -205,7 +253,6 @@ export default function InteractiveMap({
       onMouseLeave={handleMouseLeave}
       onClick={handleClick}
     >
-      <NavigationControl position="top-right" showCompass={true} />
       
       {/* Polygon Layer - displays saved polygons */}
       <PolygonLayer polygons={polygons} />

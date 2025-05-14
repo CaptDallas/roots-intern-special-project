@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { Button, Heading, VStack, Text, Image, Box, SimpleGrid, Flex, Badge, HStack } from "@chakra-ui/react"
 import dynamic from 'next/dynamic';
 import { Feature, Polygon, Geometry } from 'geojson';
@@ -29,6 +29,20 @@ export default function Home() {
   const [showOnlyAssumable, setShowOnlyAssumable] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('listings')
   const [isPanelOpen, setIsPanelOpen] = useState(false)
+  
+  // Reference to store the drawing mode function
+  const enableDrawingRef = useRef<(() => boolean) | null>(null);
+  
+  // Function to enable drawing mode
+  const enableDrawing = () => {
+    if (enableDrawingRef.current) {
+      const success = enableDrawingRef.current();
+      if (success) {
+        // Optional: show a success message or change button state
+        console.log('Drawing mode enabled');
+      }
+    }
+  };
 
   const fetchRecentListings = async () => {
     setLoading(true)
@@ -129,6 +143,7 @@ export default function Home() {
           onPolygonChange={handlePolygonChange}
           onListingClick={handleListingClick}
           polygons={polygons}
+          onEnableDrawingRef={enableDrawingRef}
         />
       </Box>
       
@@ -156,6 +171,16 @@ export default function Home() {
           >
             {viewMode === 'listings' ? 'View Dashboard' : 'View Listings'}
           </Button>
+          
+          {/* Drawing mode button */}
+          <Button
+            colorScheme="green"
+            variant="solid"
+            onClick={enableDrawing}
+          >
+            Enable Drawing
+          </Button>
+          
           <Button
             colorScheme="blue"
             onClick={fetchRecentListings}
