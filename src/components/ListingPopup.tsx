@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Popup } from 'react-map-gl/mapbox';
 import { Box, Text, VStack, Image } from '@chakra-ui/react';
-import { Listing } from '@/types/listing';
+import { Listing } from '@/types';
 
 export type HoveredPoint = {
   longitude: number;

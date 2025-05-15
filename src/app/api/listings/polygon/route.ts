@@ -3,6 +3,35 @@ import { prisma } from '@/lib/prisma'
 import type { Feature, Polygon } from 'geojson'
 import { SearchAggregations } from '@/types'
 
+/**
+ * Polygon Search API Route
+ * 
+ * This API endpoint finds real estate listings within specified geographic polygon regions.
+ * It performs spatial queries against the database using PostGIS
+ * 
+ * Features:
+ * - Accepts single or multiple GeoJSON polygon features
+ * - Supports filtering by price range and assumable mortgage status
+ * - Performs spatial queries using PostGIS
+ * - Provides aggregated statistics about the results (counts, averages, etc.)
+ * 
+ * Request Parameters:
+ * - assumable: (URL param)
+ * - minPrice: (URL param)
+ * - maxPrice: (URL param)
+ * - limit: (URL param)
+ * - body: (JSON) Array of GeoJSON polygon features
+ * 
+ * Response Format:
+ * {
+ *   listings: Array of property listings
+ *   aggregations: Statistical data about the results
+ *   totalCount: Number of listings found
+ * }
+ * 
+ * @param {Request} request - The incoming HTTP request with GeoJSON polygons
+ * @returns {Promise<NextResponse>} JSON response with listings and aggregations
+ */
 export async function POST(request: Request) {
   try {
     // Extract query parameters from URL

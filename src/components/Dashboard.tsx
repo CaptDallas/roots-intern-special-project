@@ -35,16 +35,29 @@ const StatCard = ({ title, value, subtitle, ...props }: {
   </Box>
 );
 
+/**
+ * Dashboard Component
+ * 
+ * Displays analytical data/visualizations for the active search result (polygon region).
+ * 
+ * Features:
+ * - Key statistics summary (median interest rate, assumable listing count, average price)
+ * - Interest rate distribution histogram for assumable listings
+ * - Could be amended to visualize any data you want
+ * 
+ * @param {SearchResult[]} searchHistory - Array of all search results (polygon regions)
+ * @param {number} activeSearchIndex - Index of search result to be displayed
+ * 
+ * @returns {JSX.Element} Dashboard
+ */
 export default function Dashboard({ 
   searchHistory, 
   activeSearchIndex,
 }: DashboardProps) {
-  // Get the active search and its listings
   const activeSearch = searchHistory[activeSearchIndex];
   const listings = activeSearch?.listings || [];
   const aggregations = activeSearch?.aggregations;
   
-  // Calculate dashboard metrics (use aggregations if available)
   const assumableListings = listings.filter(listing => listing.isAssumable);
   const assumableCount = aggregations?.assumableListings ?? assumableListings.length;
   const totalListings = aggregations?.totalListings ?? listings.length;
@@ -57,11 +70,9 @@ export default function Dashboard({
     ? assumableListings.reduce((sum, listing) => sum + (typeof listing.price === 'number' ? listing.price : 0), 0) / assumableListings.length 
     : 0);
   
-  // Calculate median interest rate for assumable properties
   const medianInterestRate = aggregations?.medianLoanRate ?? (() => {
     if (!assumableListings.length) return 0;
     
-    // Filter out listings with no interest rate and sort them
     const rates = assumableListings
       .map(listing => listing.denormalizedAssumableInterestRate)
       .filter(rate => rate !== undefined && rate !== null)
@@ -69,35 +80,28 @@ export default function Dashboard({
     
     if (!rates.length) return 0;
     
-    // Get the middle value for median calculation
     const midIndex = Math.floor(rates.length / 2);
     
-    // If even number of elements, average the middle two
     if (rates.length % 2 === 0) {
       return (rates[midIndex - 1] + rates[midIndex]) / 2;
     }
-    // If odd number of elements, return the middle one
     return rates[midIndex];
   })();
   
-  // Create data for the interest rate histogram
   const interestRateHistogramData = useMemo(() => {
     if (!assumableListings.length) return [];
     
-    // Get all interest rates
     const rates = assumableListings
       .map(listing => listing.denormalizedAssumableInterestRate)
       .filter(rate => rate !== undefined && rate !== null);
     
     if (!rates.length) return [];
     
-    // Define buckets for the histogram (from 2.0% to 8.0% in 0.5% increments)
     const bucketSize = 0.5;
     const minRate = 2.0;
     const maxRate = 8.0;
     const buckets: { range: string; count: number; rate: number }[] = [];
     
-    // Create empty buckets
     for (let rate = minRate; rate <= maxRate; rate += bucketSize) {
       buckets.push({
         range: `${rate.toFixed(1)}%`,
@@ -106,9 +110,8 @@ export default function Dashboard({
       });
     }
     
-    // Count rates in each bucket
     rates.forEach(rate => {
-      if (rate < minRate || rate > maxRate) return; // Skip outliers
+      if (rate < minRate || rate > maxRate) return;
       
       const bucketIndex = Math.floor((rate - minRate) / bucketSize);
       if (bucketIndex >= 0 && bucketIndex < buckets.length) {
@@ -116,11 +119,9 @@ export default function Dashboard({
       }
     });
     
-    // Filter out empty buckets and return
     return buckets.filter(bucket => bucket.count > 0);
   }, [assumableListings]);
     
-  // Get property types distribution
   const propertyTypes = aggregations?.propertyTypes ?? listings.reduce((acc, listing) => {
     const type = listing.propertyType || 'Unknown';
     acc[type] = (acc[type] || 0) + 1;
