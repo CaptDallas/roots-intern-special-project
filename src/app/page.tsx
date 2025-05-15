@@ -7,6 +7,7 @@ import { Feature, Polygon, Geometry } from 'geojson';
 import { Listing } from '@/types';
 import { COLORS, SHADOWS } from './styles/theme';
 import { SearchResult } from '@/types';
+import { searchByPolygons } from '@/services/listing.service';
 
 const BUTTON_SHADOW = SHADOWS.md;
 
@@ -78,26 +79,20 @@ export default function Home() {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch('/api/listings/polygon', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(drawingPolygons)
-      })
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to fetch polygon listings')
-      }
-      const data = await response.json()
+      const data = await searchByPolygons(drawingPolygons, {
+        assumable: true,
+        minPrice: 0,
+        maxPrice: 10000000,
+        limit: 100000
+      });
       
       // Create a new search result
       const newSearch: SearchResult = {
         id: `polygon_${Date.now()}`,
         timestamp: new Date(),
-        polygons: [...drawingPolygons], // Create a copy of the polygons array
-        listings: data.listings, // Use listings from the new response format
-        aggregations: data.aggregations // Include the aggregations
+        polygons: [...drawingPolygons],
+        listings: data.listings,
+        aggregations: data.aggregations
       };
       
       // Add to search history

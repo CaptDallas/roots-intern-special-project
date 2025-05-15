@@ -5,6 +5,13 @@ import { SearchAggregations } from '@/types'
 
 export async function POST(request: Request) {
   try {
+    // Extract query parameters from URL
+    const url = new URL(request.url);
+    const showOnlyAssumable = url.searchParams.get('assumable') === 'true';
+    const minPrice = parseFloat(url.searchParams.get('minPrice') || '0');
+    const maxPrice = parseFloat(url.searchParams.get('maxPrice') || '10000000'); // Default high upper bound
+    const limit = parseInt(url.searchParams.get('limit') || '1000'); // Default to 1000 listings max
+    
     let polygons: Feature<Polygon>[]
     try {
       const body = await request.json()
@@ -48,39 +55,69 @@ export async function POST(request: Request) {
           .join(', ')}))`
       })
       
+      // Build the WHERE clause for filtering
+      let filterConditions = '';
+      if (showOnlyAssumable) {
+        filterConditions += ` AND l."isAssumable" = true`;
+      }
+      if (minPrice > 0) {
+        filterConditions += ` AND l.price::float >= ${minPrice}`;
+      }
+      if (maxPrice < 10000000) {
+        filterConditions += ` AND l.price::float <= ${maxPrice}`;
+      }
+      
       if (wktPolygons.length === 1) {
-        const listings = await prisma.$queryRaw<any[]>`
-          SELECT 
-            l.id,
-            l.address,
-            l.city,
-            l.state,
-            l.price::float as price,
-            l.bedrooms::float as bedrooms,
-            l.bathrooms::float as bathrooms,
-            l."squareFeet"::float as "squareFeet",
-            l."propertyType" as "propertyType",
-            l."photoUrls" as "photoUrls",
-            l.status,
-            l."createdAt" as "createdAt",
-            l.latitude::float as latitude,
-            l.longitude::float as longitude,
-            l."isAssumable" as "isAssumable",
-            l."denormalizedAssumableInterestRate"::float as "denormalizedAssumableInterestRate"
-          FROM "Listing" l
-          WHERE ST_Contains(
-            ST_SetSRID(ST_GeomFromText(${wktPolygons[0]}), 4326),
-            ST_SetSRID(ST_MakePoint(l.longitude::float, l.latitude::float), 4326)
-          )
-        `
-        
-        // Calculate aggregations
-        const aggregations = calculateAggregations(listings)
-        
-        return NextResponse.json({
-          listings,
-          aggregations
-        })
+        try {
+          // For single polygon case, apply filter conditions directly in the SQL string
+          // This avoids issues with the template literal tag
+          let singlePolygonQuery = `
+            SELECT 
+              l.id,
+              l.address,
+              l.city,
+              l.state,
+              l.price::float as price,
+              l.bedrooms::float as bedrooms,
+              l.bathrooms::float as bathrooms,
+              l."squareFeet"::float as "squareFeet",
+              l."propertyType" as "propertyType",
+              l."photoUrls" as "photoUrls",
+              l.status,
+              l."createdAt" as "createdAt",
+              l.latitude::float as latitude,
+              l.longitude::float as longitude,
+              l."isAssumable" as "isAssumable",
+              l."denormalizedAssumableInterestRate"::float as "denormalizedAssumableInterestRate"
+            FROM "Listing" l
+            WHERE ST_Contains(
+              ST_SetSRID(ST_GeomFromText('${wktPolygons[0]}'), 4326),
+              ST_SetSRID(ST_MakePoint(l.longitude::float, l.latitude::float), 4326)
+            )
+            ${filterConditions}
+            LIMIT ${limit}
+          `;
+          
+          const listings = await prisma.$queryRawUnsafe<any[]>(singlePolygonQuery);
+          
+          // Calculate aggregations
+          const aggregations = calculateAggregations(listings)
+          
+          return NextResponse.json({
+            listings,
+            aggregations,
+            totalCount: listings.length
+          })
+        } catch (singlePolygonError) {
+          console.error('Error in single polygon query:', singlePolygonError);
+          return NextResponse.json(
+            { 
+              error: 'Failed to process single polygon query', 
+              details: singlePolygonError instanceof Error ? singlePolygonError.message : String(singlePolygonError)
+            },
+            { status: 500 }
+          );
+        }
       }
       
       let unionQuery = `SELECT ST_Union(ARRAY[`
@@ -116,6 +153,8 @@ export async function POST(request: Request) {
             union_geom.union_geom,
             ST_SetSRID(ST_MakePoint(l.longitude::float, l.latitude::float), 4326)
           )
+          ${filterConditions}
+          LIMIT ${limit}
         `;
         
         const listings = await prisma.$queryRawUnsafe<any[]>(fullQuery);
@@ -125,7 +164,8 @@ export async function POST(request: Request) {
         
         return NextResponse.json({
           listings,
-          aggregations
+          aggregations,
+          totalCount: listings.length
         })
       } catch (dbError) {
         console.error('Database error details:', dbError);
@@ -157,6 +197,7 @@ export async function POST(request: Request) {
     )
   }
 }
+
 
 // Helper function to calculate aggregations from listings
 function calculateAggregations(listings: any[]): SearchAggregations {
