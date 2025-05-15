@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import type { Feature, Polygon } from 'geojson'
+import { SearchAggregations } from '@/types'
 
 export async function POST(request: Request) {
   try {
@@ -71,9 +72,15 @@ export async function POST(request: Request) {
             ST_SetSRID(ST_GeomFromText(${wktPolygons[0]}), 4326),
             ST_SetSRID(ST_MakePoint(l.longitude::float, l.latitude::float), 4326)
           )
-          AND l."isAssumable" = true
         `
-        return NextResponse.json(listings)
+        
+        // Calculate aggregations
+        const aggregations = calculateAggregations(listings)
+        
+        return NextResponse.json({
+          listings,
+          aggregations
+        })
       }
       
       let unionQuery = `SELECT ST_Union(ARRAY[`
@@ -109,12 +116,17 @@ export async function POST(request: Request) {
             union_geom.union_geom,
             ST_SetSRID(ST_MakePoint(l.longitude::float, l.latitude::float), 4326)
           )
-          AND l."isAssumable" = true
         `;
         
-        const unionResult = await prisma.$queryRawUnsafe<any[]>(fullQuery);
+        const listings = await prisma.$queryRawUnsafe<any[]>(fullQuery);
         
-        return NextResponse.json(unionResult)
+        // Calculate aggregations
+        const aggregations = calculateAggregations(listings)
+        
+        return NextResponse.json({
+          listings,
+          aggregations
+        })
       } catch (dbError) {
         console.error('Database error details:', dbError);
         console.error('Error stack:', dbError instanceof Error ? dbError.stack : 'No stack available');
@@ -144,4 +156,62 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
+}
+
+// Helper function to calculate aggregations from listings
+function calculateAggregations(listings: any[]): SearchAggregations {
+  // Total listings count
+  const totalListings = listings.length;
+  
+  // Assumable listings
+  const assumableListings = listings.filter(listing => listing.isAssumable);
+  const assumableCount = assumableListings.length;
+  
+  // Calculate median interest rate
+  const medianLoanRate = (() => {
+    if (!assumableListings.length) return 0;
+    
+    // Filter out listings with no interest rate and sort them
+    const rates = assumableListings
+      .map(listing => listing.denormalizedAssumableInterestRate)
+      .filter(rate => rate !== undefined && rate !== null)
+      .sort((a, b) => a - b);
+    
+    if (!rates.length) return 0;
+    
+    // Get the middle value for median calculation
+    const midIndex = Math.floor(rates.length / 2);
+    
+    // If even number of elements, average the middle two
+    if (rates.length % 2 === 0) {
+      return (rates[midIndex - 1] + rates[midIndex]) / 2;
+    }
+    // If odd number of elements, return the middle one
+    return rates[midIndex];
+  })();
+  
+  // Calculate average prices
+  const avgPrice = totalListings 
+    ? listings.reduce((sum, listing) => sum + (typeof listing.price === 'number' ? listing.price : 0), 0) / totalListings 
+    : 0;
+    
+  const avgAssumablePrice = assumableCount 
+    ? assumableListings.reduce((sum, listing) => sum + (typeof listing.price === 'number' ? listing.price : 0), 0) / assumableCount 
+    : 0;
+  
+  // Get property types distribution
+  const propertyTypes: Record<string, number> = listings.reduce((acc, listing) => {
+    const type = listing.propertyType || 'Unknown';
+    acc[type] = (acc[type] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  return {
+    totalListings,
+    assumableListings: assumableCount,
+    medianLoanRate,
+    avgPrice,
+    avgAssumablePrice,
+    propertyTypes
+  };
 }

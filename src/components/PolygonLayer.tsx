@@ -8,14 +8,15 @@ import { SearchResult } from '@/types';
 // Define base polygon style
 const BASE_STYLE = {
   fillOpacity: 0.2,
-  outlineWidth: 2
+  outlineWidth: 2,
+  outlineDasharray: [1]
 };
 
 // Style for currently drawn (unsearched) polygons - uses same color as assigned but enhanced
 const CURRENT_DRAWING_STYLE = {
   fillOpacity: 0.4,       // Higher opacity for better visibility
   outlineWidth: 3.5,      // Thicker outline
-  outlineDasharray: [1, 1] // Dashed outline to indicate it's being drawn
+  outlineDasharray: [1]
 };
 
 // The region color keys in order of assignment
